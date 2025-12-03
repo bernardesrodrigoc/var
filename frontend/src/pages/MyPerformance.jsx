@@ -85,48 +85,49 @@ export default function MyPerformance() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Meta do Mês</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">% da Meta Base</CardTitle>
             <Target className="w-5 h-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(performance.meta_vendas)}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Vendas Realizadas</CardTitle>
-            <TrendingUp className="w-5 h-5 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(performance.vendas_realizadas)}
-            </div>
+            <div className="text-2xl font-bold">{performance.percentual_atingido.toFixed(1)}%</div>
             <p className="text-xs text-gray-500 mt-1">{performance.num_vendas} vendas</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">% da Meta</CardTitle>
-            <Award className="w-5 h-5 text-purple-500" />
+            <CardTitle className="text-sm font-medium text-gray-600">% Acima da Meta</CardTitle>
+            <TrendingUp className="w-5 h-5 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {performance.percentual_atingido.toFixed(1)}%
+            <div className="text-2xl font-bold text-green-600">
+              {performance.percentual_acima_meta > 0 ? '+' : ''}{performance.percentual_acima_meta.toFixed(1)}%
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Comissão Estimada</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Bônus Atual</CardTitle>
+            <Award className="w-5 h-5 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {formatCurrency(performance.bonus_valor)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Comissão Total</CardTitle>
             <DollarSign className="w-5 h-5 text-yellow-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
-              {formatCurrency(performance.comissao_estimada)}
+              {formatCurrency(performance.comissao_total)}
             </div>
+            <p className="text-xs text-gray-500 mt-1">1% vendas + bônus</p>
           </CardContent>
         </Card>
       </div>
