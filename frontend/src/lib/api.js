@@ -96,6 +96,10 @@ export const customersAPI = {
     const response = await api.get(`/customers/${id}`);
     return response.data;
   },
+  getSales: async (id) => {
+    const response = await api.get(`/customers/${id}/sales`);
+    return response.data;
+  },
   create: async (customer) => {
     const response = await api.post('/customers', customer);
     return response.data;
