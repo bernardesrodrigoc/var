@@ -91,7 +91,7 @@ class CustomerBase(BaseModel):
     cpf: Optional[str] = None
     endereco: Optional[str] = None
     limite_credito: float = 0.0
-    saldo_devedor: float = 0.0
+    saldo_devedor: float = 0.0  # Dívida de compras a prazo
     credito_loja: float = 0.0  # Crédito de trocas
 
 class CustomerCreate(CustomerBase):
