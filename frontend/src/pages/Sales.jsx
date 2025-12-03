@@ -125,7 +125,7 @@ export default function Sales() {
         parcelas: installments,
         desconto: discount,
         vendedor: user.full_name,
-        customer_id: selectedCustomer || null,
+        customer_id: selectedCustomer !== 'none' ? selectedCustomer : null,
         online: isOnline,
         encomenda: isEncomenda,
       };
