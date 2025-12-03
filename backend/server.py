@@ -107,11 +107,18 @@ class SaleItem(BaseModel):
     preco_custo: float
     subtotal: float
 
+# Payment Split Model
+class PaymentSplit(BaseModel):
+    modalidade: str
+    valor: float
+    parcelas: int = 1
+
 # Sale Models
 class SaleBase(BaseModel):
     items: List[SaleItem]
     total: float
-    modalidade_pagamento: str  # "Dinheiro", "Cartao", "Pix", "Credito"
+    modalidade_pagamento: str  # "Dinheiro", "Cartao", "Pix", "Credito", "Misto"
+    pagamentos: List[PaymentSplit] = []  # Para pagamento misto
     parcelas: int = 1
     desconto: float = 0.0
     vendedor: str
@@ -119,6 +126,7 @@ class SaleBase(BaseModel):
     observacoes: Optional[str] = None
     online: bool = False
     encomenda: bool = False
+    is_troca: bool = False  # Se é uma troca
 
 class SaleCreate(SaleBase):
     pass
