@@ -63,12 +63,19 @@ export default function TransferenciasAvancado() {
       
       // Carregar transferências da filial
       if (isAdmin) {
-        const [transferenciaData, usersData] = await Promise.all([
-          api.get('/transferencias'),
-          api.get('/users'),
-        ]);
-        setTransferencias(transferenciaData.data);
-        setUsers(usersData.data.filter(u => u.role === 'vendedora'));
+        const response = await api.get('/transferencias');
+        // Filtrar apenas transferências da filial atual
+        const transferenciasDaFilial = response.data.filter(
+          t => t.filial_id === selectedFilial.id
+        );
+        setTransferencias(transferenciasDaFilial);
+      } else if (isVendedora) {
+        // Vendedora vê apenas suas próprias transferências
+        const response = await api.get(`/transferencias/vendedora/${user.id}`);
+        const transferenciasDaFilial = response.data.filter(
+          t => t.filial_id === selectedFilial.id
+        );
+        setTransferencias(transferenciasDaFilial);
       }
     } catch (error) {
       console.error('Erro ao carregar transferências:', error);
