@@ -7,6 +7,7 @@ import Sales from '@/pages/Sales';
 import Customers from '@/pages/Customers';
 import Reports from '@/pages/Reports';
 import MyPerformance from '@/pages/MyPerformance';
+import ManageUsers from '@/pages/ManageUsers';
 import { Toaster } from '@/components/ui/toaster';
 import '@/App.css';
 
