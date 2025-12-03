@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { reportsAPI, salesAPI } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { useFilial } from '@/context/FilialContext';
 import { FileText, Download, Calendar } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import api from '@/lib/api';
 
 export default function Reports() {
   const [salesByVendor, setSalesByVendor] = useState([]);
@@ -13,17 +15,24 @@ export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
+  const { selectedFilial } = useFilial();
 
   useEffect(() => {
-    loadReports();
-  }, [selectedMonth, selectedYear]);
+    if (selectedFilial) {
+      loadReports();
+    }
+  }, [selectedMonth, selectedYear, selectedFilial]);
 
   const loadReports = async () => {
+    if (!selectedFilial) return;
+    
     try {
+      const filialParam = `filial_id=${selectedFilial.id}`;
+      
       const [salesData, inventoryData, salesList] = await Promise.all([
-        reportsAPI.getSalesByVendor(selectedMonth, selectedYear),
-        reportsAPI.getInventoryValue(),
-        salesAPI.getAll(),
+        api.get(`/reports/sales-by-vendor?mes=${selectedMonth}&ano=${selectedYear}&${filialParam}`).then(r => r.data),
+        api.get(`/reports/inventory-value?${filialParam}`).then(r => r.data),
+        api.get(`/sales?${filialParam}`).then(r => r.data),
       ]);
 
       setSalesByVendor(salesData);
