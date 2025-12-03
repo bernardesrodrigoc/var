@@ -341,6 +341,10 @@ async def delete_user(user_id: str, current_user: User = Depends(get_current_act
 
 @api_router.post("/products", response_model=Product)
 async def create_product(product: ProductCreate, current_user: User = Depends(get_current_active_user)):
+    # Only admin and gerente can create products
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Apenas administradores e gerentes podem cadastrar produtos")
+    
     # Check if codigo exists
     existing = await db.products.find_one({"codigo": product.codigo}, {"_id": 0})
     if existing:
