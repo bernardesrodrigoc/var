@@ -345,6 +345,23 @@ async def get_product_by_barcode(codigo: str, current_user: User = Depends(get_c
         product['updated_at'] = datetime.fromisoformat(product['updated_at'])
     return Product(**product)
 
+@api_router.get("/products/search/{query}", response_model=List[Product])
+async def search_products(query: str, current_user: User = Depends(get_current_active_user)):
+    # Search by codigo or descricao (case insensitive)
+    products = await db.products.find({
+        "$or": [
+            {"codigo": {"$regex": query, "$options": "i"}},
+            {"descricao": {"$regex": query, "$options": "i"}}
+        ]
+    }, {"_id": 0}).limit(10).to_list(10)
+    
+    for p in products:
+        if isinstance(p.get('created_at'), str):
+            p['created_at'] = datetime.fromisoformat(p['created_at'])
+        if isinstance(p.get('updated_at'), str):
+            p['updated_at'] = datetime.fromisoformat(p['updated_at'])
+    return products
+
 @api_router.put("/products/{product_id}", response_model=Product)
 async def update_product(product_id: str, product: ProductCreate, current_user: User = Depends(get_current_active_user)):
     existing = await db.products.find_one({"id": product_id}, {"_id": 0})
