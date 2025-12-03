@@ -261,9 +261,9 @@ export default function TransferenciasAvancado() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
-                    {users.map((u) => (
-                      <SelectItem key={u.id} value={u.full_name}>
-                        {u.full_name}
+                    {vendedoras.map((vendedora) => (
+                      <SelectItem key={vendedora.id} value={vendedora.full_name}>
+                        {vendedora.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
