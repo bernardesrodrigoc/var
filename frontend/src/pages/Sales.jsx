@@ -140,7 +140,7 @@ export default function Sales() {
       // Reset form
       setCart([]);
       setDiscount(0);
-      setSelectedCustomer('');
+      setSelectedCustomer('none');
       setIsOnline(false);
       setIsEncomenda(false);
       setPaymentMethod('Dinheiro');
