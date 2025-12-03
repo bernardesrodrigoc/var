@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { reportsAPI, goalsAPI, salesAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
+import { useFilial } from '@/context/FilialContext';
 import { Package, TrendingUp, Users, ShoppingCart, Target, Award } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import api from '@/lib/api';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
@@ -12,20 +14,27 @@ export default function Dashboard() {
   const [salesByVendor, setSalesByVendor] = useState([]);
   const [inventoryValue, setInventoryValue] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { selectedFilial } = useFilial();
 
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    if (selectedFilial) {
+      loadDashboardData();
+    }
+  }, [selectedFilial]);
 
   const loadDashboardData = async () => {
+    if (!selectedFilial) return;
+    
     try {
+      const filialParam = `filial_id=${selectedFilial.id}`;
+      
       const [statsData, salesData, inventoryData] = await Promise.all([
-        reportsAPI.getDashboard(),
-        reportsAPI.getSalesByVendor(currentMonth, currentYear),
-        reportsAPI.getInventoryValue(),
+        api.get(`/reports/dashboard?${filialParam}`).then(r => r.data),
+        api.get(`/reports/sales-by-vendor?mes=${currentMonth}&ano=${currentYear}&${filialParam}`).then(r => r.data),
+        api.get(`/reports/inventory-value?${filialParam}`).then(r => r.data),
       ]);
 
       setStats(statsData);
