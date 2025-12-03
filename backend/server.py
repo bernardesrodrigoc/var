@@ -489,20 +489,35 @@ async def delete_customer(customer_id: str, current_user: User = Depends(get_cur
 
 @api_router.post("/sales", response_model=Sale)
 async def create_sale(sale: SaleCreate, current_user: User = Depends(get_current_active_user)):
-    # Update product quantities
-    for item in sale.items:
-        product = await db.products.find_one({"id": item.product_id}, {"_id": 0})
-        if not product:
-            raise HTTPException(status_code=404, detail=f"Produto {item.codigo} não encontrado")
-        
-        new_quantity = product['quantidade'] - item.quantidade
-        if new_quantity < 0:
-            raise HTTPException(status_code=400, detail=f"Estoque insuficiente para {item.descricao}")
-        
-        await db.products.update_one(
-            {"id": item.product_id},
-            {"$set": {"quantidade": new_quantity, "updated_at": datetime.now(timezone.utc).isoformat()}}
-        )
+    # If it's a troca (exchange), ADD quantity back to stock instead of subtracting
+    if sale.is_troca:
+        for item in sale.items:
+            product = await db.products.find_one({"id": item.product_id}, {"_id": 0})
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Produto {item.codigo} não encontrado")
+            
+            # ADD quantity back (troca = produto voltando)
+            new_quantity = product['quantidade'] + item.quantidade
+            
+            await db.products.update_one(
+                {"id": item.product_id},
+                {"$set": {"quantidade": new_quantity, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+    else:
+        # Normal sale: SUBTRACT quantity from stock
+        for item in sale.items:
+            product = await db.products.find_one({"id": item.product_id}, {"_id": 0})
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Produto {item.codigo} não encontrado")
+            
+            new_quantity = product['quantidade'] - item.quantidade
+            if new_quantity < 0:
+                raise HTTPException(status_code=400, detail=f"Estoque insuficiente para {item.descricao}")
+            
+            await db.products.update_one(
+                {"id": item.product_id},
+                {"$set": {"quantidade": new_quantity, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
     
     # Create sale
     sale_obj = Sale(**sale.model_dump())
@@ -511,15 +526,17 @@ async def create_sale(sale: SaleCreate, current_user: User = Depends(get_current
     
     await db.sales.insert_one(doc)
     
-    # Update customer credit if applicable
-    if sale.customer_id and sale.modalidade_pagamento == "Credito":
+    # Update customer credit/debt if applicable
+    if sale.customer_id:
         customer = await db.customers.find_one({"id": sale.customer_id}, {"_id": 0})
         if customer:
-            new_saldo = customer.get('saldo_devedor', 0) + sale.total
-            await db.customers.update_one(
-                {"id": sale.customer_id},
-                {"$set": {"saldo_devedor": new_saldo}}
-            )
+            # If buying on credit, add to debt
+            if sale.modalidade_pagamento == "Credito" and not sale.is_troca:
+                new_saldo = customer.get('saldo_devedor', 0) + sale.total
+                await db.customers.update_one(
+                    {"id": sale.customer_id},
+                    {"$set": {"saldo_devedor": new_saldo}}
+                )
     
     return sale_obj
 
