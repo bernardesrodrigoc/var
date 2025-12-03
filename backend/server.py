@@ -128,11 +128,13 @@ class SaleBase(BaseModel):
     parcelas: int = 1
     desconto: float = 0.0
     vendedor: str
+    vendedor_id: Optional[str] = None  # ID do vendedor responsável
     customer_id: Optional[str] = None
     observacoes: Optional[str] = None
     online: bool = False
     encomenda: bool = False
     is_troca: bool = False  # Se é uma troca
+    filial_id: str  # Venda pertence a uma filial
 
 class SaleCreate(SaleBase):
     pass
