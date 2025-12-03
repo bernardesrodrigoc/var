@@ -193,14 +193,18 @@ export default function Customers() {
                   </TableCell>
                   <TableCell>{customer.telefone || '-'}</TableCell>
                   <TableCell className="font-mono text-sm">{customer.cpf || '-'}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(customer.limite_credito)}</TableCell>
+                  <TableCell className="text-right">
+                    <span className={`font-medium ${customer.credito_loja > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                      {formatCurrency(customer.credito_loja || 0)}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right">
                     <span
                       className={`font-medium ${
-                        customer.saldo_devedor > 0 ? 'text-orange-600' : 'text-gray-900'
+                        customer.saldo_devedor > 0 ? 'text-red-600' : 'text-gray-400'
                       }`}
                     >
-                      {formatCurrency(customer.saldo_devedor)}
+                      {formatCurrency(customer.saldo_devedor || 0)}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
