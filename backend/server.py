@@ -566,8 +566,12 @@ async def create_sale(sale: SaleCreate, current_user: User = Depends(get_current
     return sale_obj
 
 @api_router.get("/sales", response_model=List[Sale])
-async def get_sales(current_user: User = Depends(get_current_active_user)):
-    sales = await db.sales.find({}, {"_id": 0}).to_list(1000)
+async def get_sales(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
+    query = {}
+    if filial_id:
+        query["filial_id"] = filial_id
+    
+    sales = await db.sales.find(query, {"_id": 0}).to_list(1000)
     for s in sales:
         if isinstance(s.get('data'), str):
             s['data'] = datetime.fromisoformat(s['data'])
