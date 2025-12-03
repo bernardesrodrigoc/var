@@ -68,6 +68,10 @@ export const productsAPI = {
     const response = await api.get(`/products/barcode/${codigo}`);
     return response.data;
   },
+  search: async (query) => {
+    const response = await api.get(`/products/search/${query}`);
+    return response.data;
+  },
   create: async (product) => {
     const response = await api.post('/products', product);
     return response.data;
