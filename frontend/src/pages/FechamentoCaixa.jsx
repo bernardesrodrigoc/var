@@ -22,7 +22,7 @@ export default function FechamentoCaixa() {
 
   const loadResumo = async () => {
     try {
-      const response = await api.get('/api/fechamento-caixa/hoje');
+      const response = await api.get('/fechamento-caixa/hoje');
       setResumo(response.data);
     } catch (error) {
       toast({
@@ -40,7 +40,7 @@ export default function FechamentoCaixa() {
 
     setSaving(true);
     try {
-      await api.post('/api/fechamento-caixa', {
+      await api.post('/fechamento-caixa', {
         vendedora_id: user.id || 'unknown',
         vendedora_nome: user.full_name,
         filial_id: user.filial_id || 'default',
