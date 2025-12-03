@@ -192,7 +192,7 @@ export default function Products() {
                       {product.quantidade}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">{formatCurrency(product.preco_custo)}</TableCell>
+                  {canEdit && <TableCell className="text-right">{formatCurrency(product.preco_custo)}</TableCell>}
                   <TableCell className="text-right font-medium">
                     {formatCurrency(product.preco_venda)}
                   </TableCell>
