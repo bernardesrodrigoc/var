@@ -771,8 +771,13 @@ async def get_sales_by_vendor(mes: Optional[int] = None, ano: Optional[int] = No
     return results
 
 @api_router.get("/reports/inventory-value")
-async def get_inventory_value(current_user: User = Depends(get_current_active_user)):
+async def get_inventory_value(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
+    match_stage = {}
+    if filial_id:
+        match_stage["filial_id"] = filial_id
+    
     pipeline = [
+        {"$match": match_stage} if match_stage else {"$match": {}},
         {"$group": {
             "_id": None,
             "total_custo": {"$sum": {"$multiply": ["$quantidade", "$preco_custo"]}},
