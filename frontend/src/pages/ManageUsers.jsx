@@ -374,6 +374,21 @@ export default function ManageUsers() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="filial">Filial *</Label>
+              <Select value={formData.filial_id} onValueChange={(v) => setFormData({ ...formData, filial_id: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma filial" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filiais.map((filial) => (
+                    <SelectItem key={filial.id} value={filial.id}>
+                      {filial.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {formData.role === 'vendedora' && (
               <div className="space-y-2">
                 <Label htmlFor="meta_mensal">
