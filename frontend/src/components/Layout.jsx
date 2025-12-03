@@ -14,6 +14,7 @@ export default function Layout() {
 
   // Show performance page for vendedoras
   const showPerformance = user.role === 'vendedora';
+  const isAdmin = user.role === 'admin';
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -22,6 +23,7 @@ export default function Layout() {
     { name: 'Vendas (PDV)', href: '/sales', icon: ShoppingCart },
     { name: 'Clientes', href: '/customers', icon: Users },
     { name: 'Relatórios', href: '/reports', icon: TrendingUp },
+    ...(isAdmin ? [{ name: 'Vendedoras', href: '/manage-users', icon: Users }] : []),
   ];
 
   return (
