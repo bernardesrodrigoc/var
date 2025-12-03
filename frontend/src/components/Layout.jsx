@@ -76,6 +76,25 @@ export default function Layout() {
             ))}
           </nav>
 
+          {/* Filial Info */}
+          {selectedFilial && (
+            <div className="px-4 py-3 border-t border-gray-200 bg-indigo-50">
+              <div className="flex items-center gap-2 mb-1">
+                <MapPin className="w-4 h-4 text-indigo-600" />
+                <p className="text-xs font-medium text-indigo-900">Filial Atual</p>
+              </div>
+              <p className="text-sm font-bold text-indigo-700 truncate">{selectedFilial.nome}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleChangeFilial}
+                className="mt-2 w-full text-xs"
+              >
+                Trocar Filial
+              </Button>
+            </div>
+          )}
+
           {/* User Info */}
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center justify-between">
