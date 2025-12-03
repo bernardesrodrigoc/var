@@ -52,12 +52,16 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     meta_mensal: float = 0.0  # Meta de vendas mensal
+    filial_id: Optional[str] = None  # Filial onde trabalha
+    filiais_acesso: List[str] = []  # Para gerentes: filiais que pode acessar
 
 class User(UserBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     meta_mensal: float = 0.0
+    filial_id: Optional[str] = None
+    filiais_acesso: List[str] = []
 
 class UserInDB(User):
     hashed_password: str
