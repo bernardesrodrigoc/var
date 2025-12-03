@@ -677,6 +677,10 @@ async def get_all_credits(current_user: User = Depends(get_current_active_user))
 
 @api_router.get("/reports/dashboard")
 async def get_dashboard_stats(current_user: User = Depends(get_current_active_user)):
+    # Vendedoras cannot access general dashboard
+    if current_user.role == "vendedora":
+        raise HTTPException(status_code=403, detail="Vendedoras não têm acesso ao dashboard geral")
+    
     # Total products
     total_products = await db.products.count_documents({})
     
