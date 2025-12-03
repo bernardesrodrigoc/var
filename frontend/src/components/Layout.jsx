@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, Users, TrendingUp, LogOut, Store } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Users, TrendingUp, LogOut, Store, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function Layout() {
