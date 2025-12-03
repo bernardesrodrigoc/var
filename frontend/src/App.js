@@ -40,6 +40,7 @@ function App() {
             <Route path="customers" element={<Customers />} />
             <Route path="reports" element={<Reports />} />
             <Route path="manage-users" element={<ManageUsers />} />
+            <Route path="fechamento-caixa" element={<FechamentoCaixa />} />
           </Route>
         </Routes>
       </BrowserRouter>
