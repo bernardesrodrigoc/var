@@ -208,6 +208,14 @@ export default function Customers() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => handleViewHistory(customer)}
+                        title="Ver histórico"
+                      >
+                        <History className="w-4 h-4 text-blue-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleOpenDialog(customer)}
                         data-testid={`edit-customer-${customer.nome}`}
                       >
