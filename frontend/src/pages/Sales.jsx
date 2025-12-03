@@ -110,8 +110,9 @@ export default function SalesAdvanced() {
     if (value.trim().length >= 2) {
       searchTimeoutRef.current = setTimeout(async () => {
         try {
-          const results = await productsAPI.search(value.trim());
-          setSearchResults(results);
+          // Buscar produtos da filial atual
+          const response = await api.get(`/products/search/${value.trim()}?filial_id=${selectedFilial.id}`);
+          setSearchResults(response.data);
           setShowResults(true);
         } catch (error) {
           setSearchResults([]);
@@ -135,7 +136,21 @@ export default function SalesAdvanced() {
     if (!barcodeInput.trim()) return;
 
     try {
-      const product = await productsAPI.getByBarcode(barcodeInput.trim());
+      // Buscar produto por código de barras na filial atual
+      const response = await api.get(`/products/barcode/${barcodeInput.trim()}`);
+      const product = response.data;
+      
+      // Verificar se o produto pertence à filial atual
+      if (product.filial_id !== selectedFilial.id) {
+        toast({
+          variant: 'destructive',
+          title: 'Produto de outra filial',
+          description: 'Este produto não está disponível nesta filial',
+        });
+        setBarcodeInput('');
+        return;
+      }
+      
       addToCart(product);
       setBarcodeInput('');
       setSearchResults([]);
