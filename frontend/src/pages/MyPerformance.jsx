@@ -75,8 +75,8 @@ export default function MyPerformance() {
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Comissão Atual</p>
-              <p className="text-3xl font-bold text-indigo-600">{performance.bonus_percent}%</p>
+              <p className="text-sm text-gray-600">Bônus Acumulado</p>
+              <p className="text-3xl font-bold text-indigo-600">{formatCurrency(performance.bonus_valor)}</p>
             </div>
           </div>
         </CardContent>
