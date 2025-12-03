@@ -1,15 +1,23 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, Users, TrendingUp, LogOut, Store, Calculator, Send, DollarSign, Building2, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Users, TrendingUp, LogOut, Store, Calculator, Send, DollarSign, Building2, ClipboardCheck, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useFilial } from '@/context/FilialContext';
 
 export default function Layout() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const { selectedFilial, clearFilial } = useFilial();
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    clearFilial();
     navigate('/login');
+  };
+
+  const handleChangeFilial = () => {
+    clearFilial();
+    navigate('/select-filial');
   };
 
   // Show performance page for vendedoras
