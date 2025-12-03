@@ -9,6 +9,10 @@ import Reports from '@/pages/Reports';
 import MyPerformance from '@/pages/MyPerformance';
 import ManageUsers from '@/pages/ManageUsers';
 import FechamentoCaixa from '@/pages/FechamentoCaixa';
+import Vales from '@/pages/Vales';
+import Transferencias from '@/pages/Transferencias';
+import Filiais from '@/pages/Filiais';
+import BalancoEstoque from '@/pages/BalancoEstoque';
 import { Toaster } from '@/components/ui/toaster';
 import '@/App.css';
 
