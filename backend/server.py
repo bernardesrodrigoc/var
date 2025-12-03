@@ -1028,6 +1028,56 @@ async def get_transferencias(current_user: User = Depends(get_current_active_use
             t['data'] = datetime.fromisoformat(t['data'])
     return transfs
 
+# ==================== FILIAIS ROUTES ====================
+
+class FilialBase(BaseModel):
+    nome: str
+    endereco: Optional[str] = None
+    telefone: Optional[str] = None
+    ativa: bool = True
+
+class Filial(FilialBase):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+@api_router.post("/filiais")
+async def create_filial(filial: FilialBase, current_user: User = Depends(get_current_active_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem criar filiais")
+    
+    filial_obj = Filial(**filial.model_dump())
+    doc = filial_obj.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    
+    await db.filiais.insert_one(doc)
+    return filial_obj
+
+@api_router.get("/filiais")
+async def get_filiais(current_user: User = Depends(get_current_active_user)):
+    filiais = await db.filiais.find({}, {"_id": 0}).to_list(100)
+    for f in filiais:
+        if isinstance(f.get('created_at'), str):
+            f['created_at'] = datetime.fromisoformat(f['created_at'])
+    return filiais
+
+@api_router.put("/filiais/{filial_id}")
+async def update_filial(filial_id: str, filial: FilialBase, current_user: User = Depends(get_current_active_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem editar filiais")
+    
+    await db.filiais.update_one({"id": filial_id}, {"$set": filial.model_dump()})
+    return {"message": "Filial atualizada com sucesso"}
+
+@api_router.delete("/filiais/{filial_id}")
+async def delete_filial(filial_id: str, current_user: User = Depends(get_current_active_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem excluir filiais")
+    
+    result = await db.filiais.delete_one({"id": filial_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Filial não encontrada")
+    return {"message": "Filial excluída com sucesso"}
+
 # ==================== BALANÇO DE ESTOQUE ROUTES ====================
 
 class BalancoItem(BaseModel):
