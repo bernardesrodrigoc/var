@@ -835,6 +835,158 @@ async def get_my_performance(current_user: User = Depends(get_current_active_use
         "falta_para_proxima_etapa": max(0, (tier * 25 * meta / 100) - vendas_realizadas) if tier < 4 else 0
     }
 
+# ==================== FECHAMENTO DE CAIXA ROUTES ====================
+
+class FechamentoCaixaBase(BaseModel):
+    vendedora_id: str
+    vendedora_nome: str
+    filial_id: str
+    data: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    total_dinheiro: float
+    total_pix: float
+    total_cartao: float
+    total_credito: float
+    total_geral: float
+    num_vendas: int
+    observacoes: Optional[str] = None
+
+class FechamentoCaixa(FechamentoCaixaBase):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+
+@api_router.post("/fechamento-caixa")
+async def create_fechamento(fechamento: FechamentoCaixaBase, current_user: User = Depends(get_current_active_user)):
+    fecha_obj = FechamentoCaixa(**fechamento.model_dump())
+    doc = fecha_obj.model_dump()
+    doc['data'] = doc['data'].isoformat()
+    
+    await db.fechamentos_caixa.insert_one(doc)
+    return fecha_obj
+
+@api_router.get("/fechamento-caixa/vendedora/{vendedora_id}")
+async def get_fechamentos_vendedora(vendedora_id: str, current_user: User = Depends(get_current_active_user)):
+    fechamentos = await db.fechamentos_caixa.find({"vendedora_id": vendedora_id}, {"_id": 0}).to_list(100)
+    for f in fechamentos:
+        if isinstance(f.get('data'), str):
+            f['data'] = datetime.fromisoformat(f['data'])
+    return fechamentos
+
+@api_router.get("/fechamento-caixa/hoje")
+async def get_fechamento_hoje(current_user: User = Depends(get_current_active_user)):
+    # Get sales from today for current user
+    today = datetime.now(timezone.utc).date()
+    
+    pipeline = [
+        {"$match": {
+            "vendedor": current_user.full_name,
+            "data": {"$gte": today.isoformat()}
+        }},
+        {"$group": {
+            "_id": "$modalidade_pagamento",
+            "total": {"$sum": "$total"},
+            "count": {"$sum": 1}
+        }}
+    ]
+    
+    results = await db.sales.aggregate(pipeline).to_list(10)
+    
+    summary = {
+        "Dinheiro": 0,
+        "Pix": 0,
+        "Cartao": 0,
+        "Credito": 0,
+        "Misto": 0
+    }
+    num_vendas = 0
+    
+    for r in results:
+        if r['_id'] in summary:
+            summary[r['_id']] = r['total']
+        num_vendas += r['count']
+    
+    return {
+        "total_dinheiro": summary["Dinheiro"],
+        "total_pix": summary["Pix"],
+        "total_cartao": summary["Cartao"],
+        "total_credito": summary["Credito"],
+        "total_misto": summary["Misto"],
+        "total_geral": sum(summary.values()),
+        "num_vendas": num_vendas
+    }
+
+# ==================== VALES ROUTES ====================
+
+class ValeBase(BaseModel):
+    vendedora_id: str
+    vendedora_nome: str
+    valor: float
+    mes: int
+    ano: int
+    observacoes: Optional[str] = None
+
+class Vale(ValeBase):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    data: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+@api_router.post("/vales")
+async def create_vale(vale: ValeBase, current_user: User = Depends(get_current_active_user)):
+    # Only admin can create vales
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem registrar vales")
+    
+    vale_obj = Vale(**vale.model_dump())
+    doc = vale_obj.model_dump()
+    doc['data'] = doc['data'].isoformat()
+    
+    await db.vales.insert_one(doc)
+    return vale_obj
+
+@api_router.get("/vales/vendedora/{vendedora_id}")
+async def get_vales_vendedora(vendedora_id: str, mes: Optional[int] = None, ano: Optional[int] = None, current_user: User = Depends(get_current_active_user)):
+    query = {"vendedora_id": vendedora_id}
+    if mes:
+        query["mes"] = mes
+    if ano:
+        query["ano"] = ano
+    
+    vales = await db.vales.find(query, {"_id": 0}).to_list(100)
+    for v in vales:
+        if isinstance(v.get('data'), str):
+            v['data'] = datetime.fromisoformat(v['data'])
+    return vales
+
+# ==================== TRANSFERÊNCIAS ROUTES ====================
+
+class TransferenciaBase(BaseModel):
+    vendedora_id: str
+    vendedora_nome: str
+    valor: float
+    observacoes: Optional[str] = None
+
+class Transferencia(TransferenciaBase):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    data: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+@api_router.post("/transferencias")
+async def create_transferencia(transf: TransferenciaBase, current_user: User = Depends(get_current_active_user)):
+    transf_obj = Transferencia(**transf.model_dump())
+    doc = transf_obj.model_dump()
+    doc['data'] = doc['data'].isoformat()
+    
+    await db.transferencias.insert_one(doc)
+    return transf_obj
+
+@api_router.get("/transferencias")
+async def get_transferencias(current_user: User = Depends(get_current_active_user)):
+    # Only admin can see all transferencias
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem ver transferências")
+    
+    transfs = await db.transferencias.find({}, {"_id": 0}).to_list(1000)
+    for t in transfs:
+        if isinstance(t.get('data'), str):
+            t['data'] = datetime.fromisoformat(t['data'])
+    return transfs
+
 # ==================== ROOT ROUTE ====================
 
 @api_router.get("/")
