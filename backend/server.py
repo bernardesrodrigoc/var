@@ -175,6 +175,23 @@ class Goal(GoalBase):
     pecas_vendidas: int = 0
     percentual_atingido: float = 0.0
 
+# Store Credit Models
+class StoreCreditBase(BaseModel):
+    customer_id: str
+    valor: float
+    origem: str  # "troca", "devolucao", "bonus"
+    observacoes: Optional[str] = None
+
+class StoreCreditCreate(StoreCreditBase):
+    pass
+
+class StoreCredit(StoreCreditBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    data: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    usado: bool = False
+    venda_origem_id: Optional[str] = None
+
 # ==================== AUTH HELPERS ====================
 
 def verify_password(plain_password, hashed_password):
