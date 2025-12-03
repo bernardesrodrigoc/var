@@ -1042,6 +1042,36 @@ async def get_vales_vendedora(vendedora_id: str, mes: Optional[int] = None, ano:
             v['data'] = datetime.fromisoformat(v['data'])
     return vales
 
+@api_router.put("/vales/{vale_id}")
+async def update_vale(vale_id: str, vale: ValeBase, current_user: User = Depends(get_current_active_user)):
+    # Only admin can update vales
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem editar vales")
+    
+    update_data = vale.model_dump()
+    result = await db.vales.update_one(
+        {"id": vale_id},
+        {"$set": update_data}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Vale não encontrado")
+    
+    return {"message": "Vale atualizado com sucesso"}
+
+@api_router.delete("/vales/{vale_id}")
+async def delete_vale(vale_id: str, current_user: User = Depends(get_current_active_user)):
+    # Only admin can delete vales
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem excluir vales")
+    
+    result = await db.vales.delete_one({"id": vale_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Vale não encontrado")
+    
+    return {"message": "Vale excluído com sucesso"}
+
 # ==================== TRANSFERÊNCIAS ROUTES ====================
 
 class TransferenciaBase(BaseModel):
