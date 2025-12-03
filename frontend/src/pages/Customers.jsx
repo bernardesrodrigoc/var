@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { customersAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Edit, Trash2, Search, User } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, User, History } from 'lucide-react';
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
