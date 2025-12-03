@@ -1,0 +1,167 @@
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { reportsAPI } from '@/lib/api';
+import { formatCurrency } from '@/lib/utils';
+import { Target, TrendingUp, Award, DollarSign } from 'lucide-react';
+
+export default function MyPerformance() {
+  const [performance, setPerformance] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadPerformance();
+  }, []);
+
+  const loadPerformance = async () => {
+    try {
+      const data = await reportsAPI.getMyPerformance();
+      setPerformance(data);
+    } catch (error) {
+      console.error('Erro ao carregar performance:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-lg text-gray-500">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (!performance) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-lg text-gray-500">Erro ao carregar dados</div>
+      </div>
+    );
+  }
+
+  const getTierInfo = (tier) => {
+    const tiers = {
+      1: { name: 'Iniciante', color: 'bg-gray-500', percent: 2, minPercent: 0 },
+      2: { name: 'Bronze', color: 'bg-orange-500', percent: 5, minPercent: 50 },
+      3: { name: 'Prata', color: 'bg-blue-500', percent: 10, minPercent: 75 },
+      4: { name: 'Ouro', color: 'bg-yellow-500', percent: 15, minPercent: 100 },
+    };
+    return tiers[tier] || tiers[1];
+  };
+
+  const tierInfo = getTierInfo(performance.tier_atual);
+  const nextTierInfo = getTierInfo(performance.tier_atual + 1);
+
+  return (
+    <div className="space-y-6" data-testid="performance-page">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Minha Performance</h1>
+        <p className="text-gray-500 mt-1">
+          Acompanhe suas metas e comissões - {performance.mes}/{performance.ano}
+        </p>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`${tierInfo.color} w-16 h-16 rounded-full flex items-center justify-center`}>
+                <Award className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{tierInfo.name}</h2>
+                <p className="text-gray-500">Nível {performance.tier_atual} de 4</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-600">Comissão Atual</p>
+              <p className="text-3xl font-bold text-indigo-600">{performance.bonus_percent}%</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Meta do Mês</CardTitle>
+            <Target className="w-5 h-5 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(performance.meta_vendas)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Vendas Realizadas</CardTitle>
+            <TrendingUp className="w-5 h-5 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(performance.vendas_realizadas)}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{performance.num_vendas} vendas</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">% da Meta</CardTitle>
+            <Award className="w-5 h-5 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {performance.percentual_atingido.toFixed(1)}%
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Comissão Estimada</CardTitle>
+            <DollarSign className="w-5 h-5 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">
+              {formatCurrency(performance.comissao_estimada)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Progresso da Meta</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="relative">
+              <div className="h-8 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500"
+                  style={{ width: `${Math.min(performance.percentual_atingido, 100)}%` }}
+                />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-bold text-white drop-shadow-lg">
+                  {performance.percentual_atingido.toFixed(1)}% atingido
+                </span>
+              </div>
+            </div>
+
+            {performance.tier_atual < 4 && (
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-gray-700">
+                  <strong>Falta {formatCurrency(performance.falta_para_proxima_etapa)}</strong> para
+                  atingir o nível <strong>{nextTierInfo.name}</strong> e ganhar{' '}
+                  <strong>{nextTierInfo.percent}%</strong> de comissão!
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
