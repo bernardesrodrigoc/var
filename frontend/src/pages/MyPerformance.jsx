@@ -41,12 +41,13 @@ export default function MyPerformance() {
 
   const getTierInfo = (tier) => {
     const tiers = {
-      1: { name: 'Iniciante', color: 'bg-gray-500', percent: 2, minPercent: 0 },
-      2: { name: 'Bronze', color: 'bg-orange-500', percent: 5, minPercent: 50 },
-      3: { name: 'Prata', color: 'bg-blue-500', percent: 10, minPercent: 75 },
-      4: { name: 'Ouro', color: 'bg-yellow-500', percent: 15, minPercent: 100 },
+      0: { name: 'Sem Bônus', color: 'bg-gray-400', bonus: 0, minPercent: 0 },
+      1: { name: 'Bronze', color: 'bg-orange-600', bonus: 40, minPercent: 16 },
+      2: { name: 'Prata', color: 'bg-gray-400', bonus: 100, minPercent: 27 },
+      3: { name: 'Ouro', color: 'bg-yellow-500', bonus: 180, minPercent: 37 },
+      4: { name: 'Diamante', color: 'bg-blue-600', bonus: 430, minPercent: 68 },
     };
-    return tiers[tier] || tiers[1];
+    return tiers[tier] || tiers[0];
   };
 
   const tierInfo = getTierInfo(performance.tier_atual);
