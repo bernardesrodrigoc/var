@@ -45,6 +45,10 @@ function App() {
             <Route path="reports" element={<Reports />} />
             <Route path="manage-users" element={<ManageUsers />} />
             <Route path="fechamento-caixa" element={<FechamentoCaixa />} />
+            <Route path="vales" element={<Vales />} />
+            <Route path="transferencias" element={<Transferencias />} />
+            <Route path="filiais" element={<Filiais />} />
+            <Route path="balanco-estoque" element={<BalancoEstoque />} />
           </Route>
         </Routes>
       </BrowserRouter>
