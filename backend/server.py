@@ -51,11 +51,13 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    meta_mensal: float = 0.0  # Meta de vendas mensal
 
 class User(UserBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    meta_mensal: float = 0.0
 
 class UserInDB(User):
     hashed_password: str
