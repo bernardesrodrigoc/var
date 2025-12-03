@@ -23,11 +23,17 @@ export default function Login() {
       const data = await authAPI.login(username, password);
       localStorage.setItem('token', data.access_token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      
+      // Limpar filial selecionada anterior (novo login)
+      localStorage.removeItem('selected_filial');
+      
       toast({
         title: 'Login realizado!',
         description: `Bem-vindo, ${data.user.full_name}`,
       });
-      navigate('/dashboard');
+      
+      // Redirecionar para seleção de filial
+      navigate('/select-filial');
     } catch (error) {
       toast({
         variant: 'destructive',
