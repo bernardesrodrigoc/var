@@ -87,12 +87,19 @@ export default function Customers() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Garantir que filial_id está presente
+    const dataToSubmit = {
+      ...formData,
+      filial_id: selectedFilial?.id || formData.filial_id
+    };
+    
     try {
       if (editingCustomer) {
-        await customersAPI.update(editingCustomer.id, formData);
+        await customersAPI.update(editingCustomer.id, dataToSubmit);
         toast({ title: 'Cliente atualizado com sucesso!' });
       } else {
-        await customersAPI.create(formData);
+        await customersAPI.create(dataToSubmit);
         toast({ title: 'Cliente criado com sucesso!' });
       }
       setDialogOpen(false);
