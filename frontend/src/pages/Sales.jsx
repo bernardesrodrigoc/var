@@ -8,10 +8,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { productsAPI, customersAPI, salesAPI, storeCreditsAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-import { ShoppingCart, Plus, Minus, Trash2, DollarSign, CreditCard, Smartphone, Gift, RefreshCw } from 'lucide-react';
+import { useFilial } from '@/context/FilialContext';
+import { ShoppingCart, Plus, Minus, Trash2, DollarSign, CreditCard, Smartphone, Gift, RefreshCw, User } from 'lucide-react';
+import api from '@/lib/api';
 
 export default function SalesAdvanced() {
   const [customers, setCustomers] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
+  const [selectedVendedor, setSelectedVendedor] = useState('');
   const [cart, setCart] = useState([]);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -36,12 +40,21 @@ export default function SalesAdvanced() {
   const [processing, setProcessing] = useState(false);
   
   const { toast } = useToast();
+  const { selectedFilial } = useFilial();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const searchTimeoutRef = useRef(null);
 
   useEffect(() => {
-    loadCustomers();
-  }, []);
+    if (selectedFilial) {
+      loadCustomers();
+      loadVendedores();
+      
+      // Se o usuário é vendedora, selecionar automaticamente
+      if (user.role === 'vendedora') {
+        setSelectedVendedor(user.id || user.username);
+      }
+    }
+  }, [selectedFilial]);
 
   useEffect(() => {
     if (selectedCustomer !== 'none') {
@@ -52,10 +65,26 @@ export default function SalesAdvanced() {
     }
   }, [selectedCustomer]);
 
-  const loadCustomers = async () => {
+  const loadVendedores = async () => {
     try {
-      const data = await customersAPI.getAll();
-      setCustomers(data);
+      const response = await api.get('/users');
+      const allUsers = response.data;
+      // Filtrar apenas vendedores da filial atual
+      const vendedoresDaFilial = allUsers.filter(u => 
+        u.role === 'vendedora' && u.filial_id === selectedFilial.id && u.active
+      );
+      setVendedores(vendedoresDaFilial);
+    } catch (error) {
+      console.error('Erro ao carregar vendedores:', error);
+    }
+  };
+
+  const loadCustomers = async () => {
+    if (!selectedFilial) return;
+    
+    try {
+      const response = await api.get(`/customers?filial_id=${selectedFilial.id}`);
+      setCustomers(response.data);
     } catch (error) {
       console.error('Erro ao carregar clientes:', error);
     }
