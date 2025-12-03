@@ -738,11 +738,15 @@ async def get_dashboard_stats(filial_id: Optional[str] = None, current_user: Use
     }
 
 @api_router.get("/reports/sales-by-vendor")
-async def get_sales_by_vendor(mes: Optional[int] = None, ano: Optional[int] = None, current_user: User = Depends(get_current_active_user)):
+async def get_sales_by_vendor(mes: Optional[int] = None, ano: Optional[int] = None, filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
     # Vendedoras cannot access this report
     if current_user.role == "vendedora":
         raise HTTPException(status_code=403, detail="Vendedoras não têm acesso a relatórios gerais")
+    
     match_stage = {}
+    if filial_id:
+        match_stage["filial_id"] = filial_id
+    
     if mes and ano:
         # Filter by month and year
         start_date = datetime(ano, mes, 1, tzinfo=timezone.utc)
@@ -750,7 +754,7 @@ async def get_sales_by_vendor(mes: Optional[int] = None, ano: Optional[int] = No
             end_date = datetime(ano + 1, 1, 1, tzinfo=timezone.utc)
         else:
             end_date = datetime(ano, mes + 1, 1, tzinfo=timezone.utc)
-        match_stage = {"data": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}}
+        match_stage["data"] = {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
     
     pipeline = [
         {"$match": match_stage} if match_stage else {"$match": {}},
