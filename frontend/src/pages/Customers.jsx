@@ -175,7 +175,7 @@ export default function Customers() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>CPF</TableHead>
-                <TableHead className="text-right">Limite Crédito</TableHead>
+                <TableHead className="text-right">Crédito Loja</TableHead>
                 <TableHead className="text-right">Saldo Devedor</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
