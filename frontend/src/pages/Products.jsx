@@ -26,6 +26,8 @@ export default function Products() {
     categoria: 'Geral',
   });
   const { toast } = useToast();
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const canEdit = user.role === 'admin' || user.role === 'gerente';
 
   useEffect(() => {
     loadProducts();
