@@ -96,6 +96,7 @@ export default function ManageUsers() {
         password: '',
         meta_mensal: user.meta_mensal || 0,
         active: user.active,
+        filial_id: user.filial_id || '',
       });
     } else {
       setEditingUser(null);
@@ -106,6 +107,7 @@ export default function ManageUsers() {
         password: '',
         meta_mensal: 0,
         active: true,
+        filial_id: '',
       });
     }
     setDialogOpen(true);
