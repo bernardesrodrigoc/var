@@ -245,6 +245,16 @@ export default function SalesAdvanced() {
       return;
     }
 
+    // Validar seleção de vendedor (admin/gerente devem selecionar)
+    if ((user.role === 'admin' || user.role === 'gerente') && !selectedVendedor) {
+      toast({
+        variant: 'destructive',
+        title: 'Vendedor não selecionado',
+        description: 'Selecione o vendedor responsável pela venda',
+      });
+      return;
+    }
+
     const total = calculateTotal();
 
     // Validate mixed payments
@@ -262,6 +272,10 @@ export default function SalesAdvanced() {
 
     setProcessing(true);
     try {
+      // Obter nome do vendedor selecionado
+      const vendedorSelecionado = vendedores.find(v => v.id === selectedVendedor || v.username === selectedVendedor);
+      const vendedorNome = vendedorSelecionado ? vendedorSelecionado.full_name : user.full_name;
+      
       const saleData = {
         items: cart,
         total: total,
@@ -269,11 +283,13 @@ export default function SalesAdvanced() {
         pagamentos: paymentMode === 'mixed' ? mixedPayments : [],
         parcelas: paymentMode === 'single' ? installments : 1,
         desconto: discount,
-        vendedor: user.full_name,
+        vendedor: vendedorNome,
+        vendedor_id: selectedVendedor || user.id,
         customer_id: selectedCustomer !== 'none' ? selectedCustomer : null,
         online: isOnline,
         encomenda: isEncomenda,
         is_troca: isTroca,
+        filial_id: selectedFilial.id,
       };
 
       const sale = await salesAPI.create(saleData);
