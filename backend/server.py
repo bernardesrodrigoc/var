@@ -74,6 +74,7 @@ class ProductBase(BaseModel):
     preco_custo: float
     preco_venda: float
     categoria: Optional[str] = "Geral"
+    filial_id: str  # Produto pertence a uma filial
 
 class ProductCreate(ProductBase):
     pass
