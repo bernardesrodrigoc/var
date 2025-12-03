@@ -802,23 +802,43 @@ async def get_my_performance(current_user: User = Depends(get_current_active_use
     meta = goal.get('meta_vendas', 0)
     percentual = (vendas_realizadas / meta * 100) if meta > 0 else 0
     
-    # Calculate bonus tier (4 etapas)
-    tier = 1
-    bonus_percent = 0
-    if percentual >= 100:
-        tier = 4
-        bonus_percent = 15  # 15% de comissão
-    elif percentual >= 75:
-        tier = 3
-        bonus_percent = 10  # 10% de comissão
-    elif percentual >= 50:
-        tier = 2
-        bonus_percent = 5  # 5% de comissão
-    else:
-        tier = 1
-        bonus_percent = 2  # 2% de comissão
+    # New commission system: 1% of sales + bonus by tier
+    comissao_base = vendas_realizadas * 0.01  # 1% comissão
     
-    comissao_estimada = vendas_realizadas * (bonus_percent / 100)
+    # Calculate bonus tier based on percentage above meta
+    # Meta 1: 16% above base = bonus R$ 40
+    # Meta 2: 27% above base = bonus R$ 60
+    # Meta 3: 37% above base = bonus R$ 80
+    # Meta 4: 68% above base = bonus R$ 250
+    
+    tier = 1
+    bonus_valor = 0
+    meta_percentual_atingida = percentual - 100  # Quanto passou da meta base
+    
+    if meta_percentual_atingida >= 68:
+        tier = 4
+        bonus_valor = 40 + 60 + 80 + 250  # Acumula todos os bônus
+    elif meta_percentual_atingida >= 37:
+        tier = 3
+        bonus_valor = 40 + 60 + 80
+    elif meta_percentual_atingida >= 27:
+        tier = 2
+        bonus_valor = 40 + 60
+    elif meta_percentual_atingida >= 16:
+        tier = 1
+        bonus_valor = 40
+    else:
+        tier = 0
+        bonus_valor = 0
+    
+    comissao_total = comissao_base + bonus_valor
+    
+    # Calculate next tier target
+    next_tier_targets = [16, 27, 37, 68]
+    falta_percentual = 0
+    if tier < 4:
+        target_percent = next_tier_targets[tier] if tier < len(next_tier_targets) else 68
+        falta_percentual = target_percent - meta_percentual_atingida
     
     return {
         "vendedor": current_user.full_name,
@@ -829,10 +849,12 @@ async def get_my_performance(current_user: User = Depends(get_current_active_use
         "pecas_vendidas": pecas_vendidas,
         "num_vendas": num_vendas,
         "percentual_atingido": percentual,
+        "percentual_acima_meta": meta_percentual_atingida,
         "tier_atual": tier,
-        "bonus_percent": bonus_percent,
-        "comissao_estimada": comissao_estimada,
-        "falta_para_proxima_etapa": max(0, (tier * 25 * meta / 100) - vendas_realizadas) if tier < 4 else 0
+        "bonus_valor": bonus_valor,
+        "comissao_base": comissao_base,
+        "comissao_total": comissao_total,
+        "falta_percentual_proxima_etapa": max(0, falta_percentual)
     }
 
 # ==================== FECHAMENTO DE CAIXA ROUTES ====================
