@@ -19,12 +19,16 @@ export default function Layout() {
   const navigation = [
     ...(!showPerformance ? [{ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }] : []),
     ...(showPerformance ? [{ name: 'Minhas Metas', href: '/performance', icon: TrendingUp }] : []),
-    { name: 'Produtos', href: '/products', icon: Package },
+    ...(!showPerformance ? [{ name: 'Produtos', href: '/products', icon: Package }] : []),
     { name: 'Vendas (PDV)', href: '/sales', icon: ShoppingCart },
     { name: 'Clientes', href: '/customers', icon: Users },
     { name: 'Fechamento', href: '/fechamento-caixa', icon: Calculator },
+    { name: 'Transferências', href: '/transferencias', icon: Send },
     ...(!showPerformance ? [{ name: 'Relatórios', href: '/reports', icon: TrendingUp }] : []),
     ...(isAdmin ? [{ name: 'Vendedoras', href: '/manage-users', icon: Users }] : []),
+    ...(isAdmin ? [{ name: 'Vales', href: '/vales', icon: DollarSign }] : []),
+    ...(isAdmin ? [{ name: 'Filiais', href: '/filiais', icon: Building2 }] : []),
+    { name: 'Balanço', href: '/balanco-estoque', icon: ClipboardCheck },
   ];
 
   return (
