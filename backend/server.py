@@ -399,14 +399,19 @@ async def get_product_by_barcode(codigo: str, current_user: User = Depends(get_c
     return Product(**product)
 
 @api_router.get("/products/search/{query}", response_model=List[Product])
-async def search_products(query: str, current_user: User = Depends(get_current_active_user)):
+async def search_products(query: str, filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
     # Search by codigo or descricao (case insensitive)
-    products = await db.products.find({
+    search_query = {
         "$or": [
             {"codigo": {"$regex": query, "$options": "i"}},
             {"descricao": {"$regex": query, "$options": "i"}}
         ]
-    }, {"_id": 0}).limit(10).to_list(10)
+    }
+    
+    if filial_id:
+        search_query["filial_id"] = filial_id
+    
+    products = await db.products.find(search_query, {"_id": 0}).limit(10).to_list(10)
     
     for p in products:
         if isinstance(p.get('created_at'), str):
