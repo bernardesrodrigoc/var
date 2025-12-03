@@ -6,6 +6,7 @@ import Products from '@/pages/Products';
 import Sales from '@/pages/Sales';
 import Customers from '@/pages/Customers';
 import Reports from '@/pages/Reports';
+import MyPerformance from '@/pages/MyPerformance';
 import { Toaster } from '@/components/ui/toaster';
 import '@/App.css';
 
