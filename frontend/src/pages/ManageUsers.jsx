@@ -17,6 +17,7 @@ export default function ManageUsers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [performanceData, setPerformanceData] = useState({});
+  const [filiais, setFiliais] = useState([]);
   const [formData, setFormData] = useState({
     username: '',
     full_name: '',
@@ -24,6 +25,7 @@ export default function ManageUsers() {
     password: '',
     meta_mensal: 0,
     active: true,
+    filial_id: '',
   });
   const { toast } = useToast();
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
