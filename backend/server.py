@@ -409,6 +409,10 @@ async def search_products(query: str, current_user: User = Depends(get_current_a
 
 @api_router.put("/products/{product_id}", response_model=Product)
 async def update_product(product_id: str, product: ProductCreate, current_user: User = Depends(get_current_active_user)):
+    # Only admin and gerente can edit products
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Apenas administradores e gerentes podem editar produtos")
+    
     existing = await db.products.find_one({"id": product_id}, {"_id": 0})
     if not existing:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
