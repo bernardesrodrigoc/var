@@ -363,8 +363,12 @@ async def create_product(product: ProductCreate, current_user: User = Depends(ge
     return product_obj
 
 @api_router.get("/products", response_model=List[Product])
-async def get_products(current_user: User = Depends(get_current_active_user)):
-    products = await db.products.find({}, {"_id": 0}).to_list(1000)
+async def get_products(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
+    query = {}
+    if filial_id:
+        query["filial_id"] = filial_id
+    
+    products = await db.products.find(query, {"_id": 0}).to_list(1000)
     for p in products:
         if isinstance(p.get('created_at'), str):
             p['created_at'] = datetime.fromisoformat(p['created_at'])
