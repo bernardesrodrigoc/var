@@ -125,26 +125,32 @@ export default function TransferenciasAvancado() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (formData.valor <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Valor inválido',
+        description: 'Informe um valor maior que zero',
+      });
+      return;
+    }
+    
     try {
       await api.post('/transferencias', {
-        vendedora_id: user.id || 'unknown',
+        vendedora_id: user.id,
         vendedora_nome: user.full_name,
+        filial_id: selectedFilial.id,
         valor: formData.valor,
         observacoes: formData.observacoes,
       });
-      
-      toast({ 
-        title: 'Transferência registrada!',
-        description: `${formatCurrency(formData.valor)} enviado para gerência`,
-      });
-      
+      toast({ title: 'Transferência registrada com sucesso!' });
       setDialogOpen(false);
       loadData();
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Erro',
-        description: 'Erro ao registrar transferência',
+        description: 'Não foi possível registrar a transferência',
       });
     }
   };
