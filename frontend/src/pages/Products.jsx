@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { productsAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import { useFilial } from '@/context/FilialContext';
 import { Plus, Edit, Trash2, Search, Barcode } from 'lucide-react';
+import api from '@/lib/api';
 
 export default function Products() {
   const [products, setProducts] = useState([]);
@@ -26,12 +28,15 @@ export default function Products() {
     categoria: 'Geral',
   });
   const { toast } = useToast();
+  const { selectedFilial } = useFilial();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const canEdit = user.role === 'admin' || user.role === 'gerente';
 
   useEffect(() => {
-    loadProducts();
-  }, []);
+    if (selectedFilial) {
+      loadProducts();
+    }
+  }, [selectedFilial]);
 
   useEffect(() => {
     const filtered = products.filter(
@@ -44,10 +49,12 @@ export default function Products() {
   }, [searchTerm, products]);
 
   const loadProducts = async () => {
+    if (!selectedFilial) return;
+    
     try {
-      const data = await productsAPI.getAll();
-      setProducts(data);
-      setFilteredProducts(data);
+      const response = await api.get(`/products?filial_id=${selectedFilial.id}`);
+      setProducts(response.data);
+      setFilteredProducts(response.data);
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -72,6 +79,7 @@ export default function Products() {
         preco_custo: 0,
         preco_venda: 0,
         categoria: 'Geral',
+        filial_id: selectedFilial?.id || '',
       });
     }
     setDialogOpen(true);
@@ -79,12 +87,19 @@ export default function Products() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Garantir que filial_id está presente
+    const dataToSubmit = {
+      ...formData,
+      filial_id: selectedFilial?.id || formData.filial_id
+    };
+    
     try {
       if (editingProduct) {
-        await productsAPI.update(editingProduct.id, formData);
+        await productsAPI.update(editingProduct.id, dataToSubmit);
         toast({ title: 'Produto atualizado com sucesso!' });
       } else {
-        await productsAPI.create(formData);
+        await productsAPI.create(dataToSubmit);
         toast({ title: 'Produto criado com sucesso!' });
       }
       setDialogOpen(false);
