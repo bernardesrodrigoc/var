@@ -1010,6 +1010,7 @@ async def get_vales_vendedora(vendedora_id: str, mes: Optional[int] = None, ano:
 class TransferenciaBase(BaseModel):
     vendedora_id: str
     vendedora_nome: str
+    filial_id: str
     valor: float
     observacoes: Optional[str] = None
 
