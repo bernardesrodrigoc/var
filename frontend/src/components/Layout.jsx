@@ -12,8 +12,12 @@ export default function Layout() {
     navigate('/login');
   };
 
+  // Show performance page for vendedoras
+  const showPerformance = user.role === 'vendedora';
+
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    ...(showPerformance ? [{ name: 'Minhas Metas', href: '/performance', icon: TrendingUp }] : []),
     { name: 'Produtos', href: '/products', icon: Package },
     { name: 'Vendas (PDV)', href: '/sales', icon: ShoppingCart },
     { name: 'Clientes', href: '/customers', icon: Users },
