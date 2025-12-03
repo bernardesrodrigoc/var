@@ -431,6 +431,10 @@ async def update_product(product_id: str, product: ProductCreate, current_user: 
 
 @api_router.delete("/products/{product_id}")
 async def delete_product(product_id: str, current_user: User = Depends(get_current_active_user)):
+    # Only admin and gerente can delete products
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Apenas administradores e gerentes podem excluir produtos")
+    
     result = await db.products.delete_one({"id": product_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
