@@ -171,6 +171,42 @@ export const reportsAPI = {
     const response = await api.get('/reports/inventory-value');
     return response.data;
   },
+  getMyPerformance: async () => {
+    const response = await api.get('/reports/my-performance');
+    return response.data;
+  },
+};
+
+// Users API
+export const usersAPI = {
+  getAll: async () => {
+    const response = await api.get('/users');
+    return response.data;
+  },
+  update: async (id, user) => {
+    const response = await api.put(`/users/${id}`, user);
+    return response.data;
+  },
+  delete: async (id) => {
+    const response = await api.delete(`/users/${id}`);
+    return response.data;
+  },
+};
+
+// Store Credits API
+export const storeCreditsAPI = {
+  getAll: async () => {
+    const response = await api.get('/store-credits');
+    return response.data;
+  },
+  getByCustomer: async (customerId) => {
+    const response = await api.get(`/store-credits/customer/${customerId}`);
+    return response.data;
+  },
+  create: async (credit) => {
+    const response = await api.post('/store-credits', credit);
+    return response.data;
+  },
 };
 
 export default api;
