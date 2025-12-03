@@ -17,12 +17,13 @@ export default function Layout() {
   const isAdmin = user.role === 'admin';
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    ...(!showPerformance ? [{ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }] : []),
     ...(showPerformance ? [{ name: 'Minhas Metas', href: '/performance', icon: TrendingUp }] : []),
     { name: 'Produtos', href: '/products', icon: Package },
     { name: 'Vendas (PDV)', href: '/sales', icon: ShoppingCart },
     { name: 'Clientes', href: '/customers', icon: Users },
-    { name: 'Relatórios', href: '/reports', icon: TrendingUp },
+    { name: 'Fechamento', href: '/fechamento-caixa', icon: Calculator },
+    ...(!showPerformance ? [{ name: 'Relatórios', href: '/reports', icon: TrendingUp }] : []),
     ...(isAdmin ? [{ name: 'Vendedoras', href: '/manage-users', icon: Users }] : []),
   ];
 
