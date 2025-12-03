@@ -27,12 +27,25 @@ export default function SelectFilial() {
       // Filtrar filiais baseado no perfil do usuário
       let availableFiliais = allFiliais;
       
-      if (currentUser.role === 'vendedora' || currentUser.role === 'gerente') {
-        // Vendedoras e gerentes veem apenas suas filiais atribuídas
+      // Admin vê todas as filiais
+      if (currentUser.role === 'admin') {
+        availableFiliais = allFiliais;
+      }
+      // Gerentes veem suas filiais de acesso (se definido) ou sua filial principal
+      else if (currentUser.role === 'gerente') {
+        if (currentUser.filiais_acesso && currentUser.filiais_acesso.length > 0) {
+          availableFiliais = allFiliais.filter(f => currentUser.filiais_acesso.includes(f.id));
+        } else if (currentUser.filial_id) {
+          availableFiliais = allFiliais.filter(f => f.id === currentUser.filial_id);
+        }
+      }
+      // Vendedoras veem APENAS sua filial atribuída
+      else if (currentUser.role === 'vendedora') {
         if (currentUser.filial_id) {
           availableFiliais = allFiliais.filter(f => f.id === currentUser.filial_id);
-        } else if (currentUser.filiais_acesso && currentUser.filiais_acesso.length > 0) {
-          availableFiliais = allFiliais.filter(f => currentUser.filiais_acesso.includes(f.id));
+        } else {
+          // Se vendedora não tem filial atribuída, não pode acessar nenhuma
+          availableFiliais = [];
         }
       }
       
