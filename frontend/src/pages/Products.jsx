@@ -163,7 +163,7 @@ export default function Products() {
                 <TableHead>Descrição</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Quantidade</TableHead>
-                <TableHead className="text-right">Preço Custo</TableHead>
+                {canEdit && <TableHead className="text-right">Preço Custo</TableHead>}
                 <TableHead className="text-right">Preço Venda</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
