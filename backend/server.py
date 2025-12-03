@@ -545,6 +545,56 @@ async def get_goal_by_period(vendedor: str, mes: int, ano: int, current_user: Us
         return default_goal
     return Goal(**goal)
 
+@api_router.put("/goals/{vendedor}/{mes}/{ano}")
+async def update_goal(vendedor: str, mes: int, ano: int, goal_data: GoalCreate, current_user: User = Depends(get_current_active_user)):
+    # Only admin can update goals
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem alterar metas")
+    
+    await db.goals.update_one(
+        {"vendedor": vendedor, "mes": mes, "ano": ano},
+        {"$set": goal_data.model_dump()},
+        upsert=True
+    )
+    return {"message": "Meta atualizada com sucesso"}
+
+# ==================== STORE CREDIT ROUTES ====================
+
+@api_router.post("/store-credits", response_model=StoreCredit)
+async def create_store_credit(credit: StoreCreditCreate, current_user: User = Depends(get_current_active_user)):
+    credit_obj = StoreCredit(**credit.model_dump())
+    doc = credit_obj.model_dump()
+    doc['data'] = doc['data'].isoformat()
+    
+    await db.store_credits.insert_one(doc)
+    
+    # Update customer's credit balance
+    customer = await db.customers.find_one({"id": credit.customer_id}, {"_id": 0})
+    if customer:
+        new_credit = customer.get('credito_loja', 0) + credit.valor
+        await db.customers.update_one(
+            {"id": credit.customer_id},
+            {"$set": {"credito_loja": new_credit}}
+        )
+    
+    return credit_obj
+
+@api_router.get("/store-credits/customer/{customer_id}", response_model=List[StoreCredit])
+async def get_customer_credits(customer_id: str, current_user: User = Depends(get_current_active_user)):
+    credits = await db.store_credits.find({"customer_id": customer_id}, {"_id": 0}).to_list(100)
+    for c in credits:
+        if isinstance(c.get('data'), str):
+            c['data'] = datetime.fromisoformat(c['data'])
+    return credits
+
+@api_router.get("/store-credits", response_model=List[StoreCredit])
+async def get_all_credits(current_user: User = Depends(get_current_active_user)):
+    credits = await db.store_credits.find({}, {"_id": 0}).to_list(1000)
+    for c in credits:
+        if isinstance(c.get('data'), str):
+            c['data'] = datetime.fromisoformat(c['data'])
+    return credits
+
 # ==================== REPORTS ROUTES ====================
 
 @api_router.get("/reports/dashboard")
