@@ -712,6 +712,100 @@ async def get_inventory_value(current_user: User = Depends(get_current_active_us
         }
     return {"valor_custo": 0, "valor_venda": 0, "lucro_potencial": 0}
 
+@api_router.get("/reports/my-performance")
+async def get_my_performance(current_user: User = Depends(get_current_active_user)):
+    # Get current month/year
+    now = datetime.now(timezone.utc)
+    mes = now.month
+    ano = now.year
+    
+    # Get user's goal
+    goal = await db.goals.find_one(
+        {"vendedor": current_user.full_name, "mes": mes, "ano": ano}, 
+        {"_id": 0}
+    )
+    
+    if not goal:
+        # Get meta from user profile
+        meta_vendas = current_user.meta_mensal
+        goal = {
+            "vendedor": current_user.full_name,
+            "mes": mes,
+            "ano": ano,
+            "meta_vendas": meta_vendas,
+            "meta_pecas": 0,
+            "vendas_realizadas": 0,
+            "pecas_vendidas": 0,
+            "percentual_atingido": 0
+        }
+    
+    # Calculate sales this month
+    start_date = datetime(ano, mes, 1, tzinfo=timezone.utc)
+    if mes == 12:
+        end_date = datetime(ano + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(ano, mes + 1, 1, tzinfo=timezone.utc)
+    
+    pipeline = [
+        {"$match": {
+            "vendedor": current_user.full_name,
+            "data": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+        }},
+        {"$group": {
+            "_id": None,
+            "total_vendas": {"$sum": "$total"},
+            "num_vendas": {"$sum": 1},
+            "total_pecas": {"$sum": {"$sum": "$items.quantidade"}}
+        }}
+    ]
+    
+    result = await db.sales.aggregate(pipeline).to_list(1)
+    
+    if result:
+        vendas_realizadas = result[0]['total_vendas']
+        pecas_vendidas = result[0].get('total_pecas', 0)
+        num_vendas = result[0]['num_vendas']
+    else:
+        vendas_realizadas = 0
+        pecas_vendidas = 0
+        num_vendas = 0
+    
+    meta = goal.get('meta_vendas', 0)
+    percentual = (vendas_realizadas / meta * 100) if meta > 0 else 0
+    
+    # Calculate bonus tier (4 etapas)
+    tier = 1
+    bonus_percent = 0
+    if percentual >= 100:
+        tier = 4
+        bonus_percent = 15  # 15% de comissão
+    elif percentual >= 75:
+        tier = 3
+        bonus_percent = 10  # 10% de comissão
+    elif percentual >= 50:
+        tier = 2
+        bonus_percent = 5  # 5% de comissão
+    else:
+        tier = 1
+        bonus_percent = 2  # 2% de comissão
+    
+    comissao_estimada = vendas_realizadas * (bonus_percent / 100)
+    
+    return {
+        "vendedor": current_user.full_name,
+        "mes": mes,
+        "ano": ano,
+        "meta_vendas": meta,
+        "vendas_realizadas": vendas_realizadas,
+        "pecas_vendidas": pecas_vendidas,
+        "num_vendas": num_vendas,
+        "percentual_atingido": percentual,
+        "tier_atual": tier,
+        "bonus_percent": bonus_percent,
+        "comissao_estimada": comissao_estimada,
+        "falta_para_proxima_etapa": max(0, (tier * 25 * meta / 100) - vendas_realizadas) if tier < 4 else 0
+    }
+
 # ==================== ROOT ROUTE ====================
 
 @api_router.get("/")
