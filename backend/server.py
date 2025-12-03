@@ -94,6 +94,7 @@ class CustomerBase(BaseModel):
     limite_credito: float = 0.0
     saldo_devedor: float = 0.0  # Dívida de compras a prazo
     credito_loja: float = 0.0  # Crédito de trocas
+    filial_id: Optional[str] = None  # Cliente pode ser associado a uma filial
 
 class CustomerCreate(CustomerBase):
     pass
