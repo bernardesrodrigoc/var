@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import { useFilial } from '@/context/FilialContext';
 import { formatCurrency } from '@/lib/utils';
 import { DollarSign, CreditCard, Smartphone, Gift, Save } from 'lucide-react';
 import api from '@/lib/api';
@@ -14,16 +15,59 @@ export default function FechamentoCaixa() {
   const [observacoes, setObservacoes] = useState('');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const { selectedFilial } = useFilial();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
-    loadResumo();
-  }, []);
+    if (selectedFilial) {
+      loadResumo();
+    }
+  }, [selectedFilial]);
 
   const loadResumo = async () => {
+    if (!selectedFilial) return;
+    
     try {
-      const response = await api.get('/fechamento-caixa/hoje');
-      setResumo(response.data);
+      // Carregar vendas do dia da filial atual
+      const hoje = new Date().toISOString().split('T')[0];
+      const response = await api.get(`/sales?filial_id=${selectedFilial.id}`);
+      const salesData = response.data;
+      
+      // Filtrar vendas de hoje
+      const vendasHoje = salesData.filter(sale => {
+        const saleDate = new Date(sale.data).toISOString().split('T')[0];
+        return saleDate === hoje;
+      });
+      
+      // Calcular totais por forma de pagamento
+      const totais = {
+        total_dinheiro: 0,
+        total_pix: 0,
+        total_cartao: 0,
+        total_credito: 0,
+        total_geral: 0,
+        num_vendas: vendasHoje.length
+      };
+      
+      vendasHoje.forEach(sale => {
+        totais.total_geral += sale.total;
+        
+        if (sale.modalidade_pagamento === 'Misto') {
+          sale.pagamentos.forEach(pag => {
+            if (pag.modalidade === 'Dinheiro') totais.total_dinheiro += pag.valor;
+            else if (pag.modalidade === 'Pix') totais.total_pix += pag.valor;
+            else if (pag.modalidade === 'Cartao') totais.total_cartao += pag.valor;
+            else if (pag.modalidade === 'Credito') totais.total_credito += pag.valor;
+          });
+        } else {
+          if (sale.modalidade_pagamento === 'Dinheiro') totais.total_dinheiro += sale.total;
+          else if (sale.modalidade_pagamento === 'Pix') totais.total_pix += sale.total;
+          else if (sale.modalidade_pagamento === 'Cartao') totais.total_cartao += sale.total;
+          else if (sale.modalidade_pagamento === 'Credito') totais.total_credito += sale.total;
+        }
+      });
+      
+      setResumo(totais);
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -36,14 +80,14 @@ export default function FechamentoCaixa() {
   };
 
   const handleSalvarFechamento = async () => {
-    if (!resumo) return;
+    if (!resumo || !selectedFilial) return;
 
     setSaving(true);
     try {
       await api.post('/fechamento-caixa', {
         vendedora_id: user.id || 'unknown',
         vendedora_nome: user.full_name,
-        filial_id: user.filial_id || 'default',
+        filial_id: selectedFilial.id,
         total_dinheiro: resumo.total_dinheiro,
         total_pix: resumo.total_pix,
         total_cartao: resumo.total_cartao,
@@ -57,6 +101,7 @@ export default function FechamentoCaixa() {
         title: 'Fechamento salvo!',
         description: 'Fechamento de caixa registrado com sucesso',
       });
+      setObservacoes('');
     } catch (error) {
       toast({
         variant: 'destructive',
