@@ -913,12 +913,21 @@ async def get_fechamentos_vendedora(vendedora_id: str, current_user: User = Depe
 
 @api_router.get("/fechamento-caixa/hoje")
 async def get_fechamento_hoje(current_user: User = Depends(get_current_active_user)):
-    # Get sales from today for current user
+    # Get sales from today for current user's filial
     today = datetime.now(timezone.utc).date()
+    
+    # Get user's filial_id
+    filial_id = current_user.filial_id
+    if not filial_id:
+        filial_id = "default"
+    
+    # Get all users from same filial
+    users_same_filial = await db.users.find({"filial_id": filial_id}, {"_id": 0, "full_name": 1}).to_list(100)
+    vendedores_filial = [u['full_name'] for u in users_same_filial]
     
     pipeline = [
         {"$match": {
-            "vendedor": current_user.full_name,
+            "vendedor": {"$in": vendedores_filial},
             "data": {"$gte": today.isoformat()}
         }},
         {"$group": {
@@ -951,7 +960,8 @@ async def get_fechamento_hoje(current_user: User = Depends(get_current_active_us
         "total_credito": summary["Credito"],
         "total_misto": summary["Misto"],
         "total_geral": sum(summary.values()),
-        "num_vendas": num_vendas
+        "num_vendas": num_vendas,
+        "filial_id": filial_id
     }
 
 # ==================== VALES ROUTES ====================
