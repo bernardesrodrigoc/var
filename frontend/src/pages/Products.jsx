@@ -126,10 +126,12 @@ export default function Products() {
           <h1 className="text-3xl font-bold text-gray-900">Produtos</h1>
           <p className="text-gray-500 mt-1">Gerencie seu catálogo de produtos</p>
         </div>
-        <Button onClick={() => handleOpenDialog()} data-testid="add-product-button">
-          <Plus className="w-4 h-4 mr-2" />
-          Adicionar Produto
-        </Button>
+        {canEdit && (
+          <Button onClick={() => handleOpenDialog()} data-testid="add-product-button">
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Produto
+          </Button>
+        )}
       </div>
 
       {/* Search */}
