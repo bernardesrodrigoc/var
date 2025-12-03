@@ -17,7 +17,7 @@ export default function Sales() {
   const [paymentMethod, setPaymentMethod] = useState('Dinheiro');
   const [installments, setInstallments] = useState(1);
   const [discount, setDiscount] = useState(0);
-  const [selectedCustomer, setSelectedCustomer] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState('none');
   const [isOnline, setIsOnline] = useState(false);
   const [isEncomenda, setIsEncomenda] = useState(false);
   const [processing, setProcessing] = useState(false);
