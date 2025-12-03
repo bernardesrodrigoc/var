@@ -452,6 +452,14 @@ async def get_customer(customer_id: str, current_user: User = Depends(get_curren
         customer['created_at'] = datetime.fromisoformat(customer['created_at'])
     return Customer(**customer)
 
+@api_router.get("/customers/{customer_id}/sales")
+async def get_customer_sales(customer_id: str, current_user: User = Depends(get_current_active_user)):
+    sales = await db.sales.find({"customer_id": customer_id}, {"_id": 0}).to_list(1000)
+    for s in sales:
+        if isinstance(s.get('data'), str):
+            s['data'] = datetime.fromisoformat(s['data'])
+    return sales
+
 @api_router.put("/customers/{customer_id}", response_model=Customer)
 async def update_customer(customer_id: str, customer: CustomerCreate, current_user: User = Depends(get_current_active_user)):
     existing = await db.customers.find_one({"id": customer_id}, {"_id": 0})
