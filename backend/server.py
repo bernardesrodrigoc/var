@@ -297,6 +297,42 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
+@api_router.get("/users", response_model=List[User])
+async def get_all_users(current_user: User = Depends(get_current_active_user)):
+    # Only admin can list users
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem listar usuários")
+    
+    users = await db.users.find({}, {"_id": 0, "hashed_password": 0}).to_list(100)
+    for u in users:
+        if isinstance(u.get('created_at'), str):
+            u['created_at'] = datetime.fromisoformat(u['created_at'])
+    return users
+
+@api_router.put("/users/{user_id}")
+async def update_user(user_id: str, user_data: UserCreate, current_user: User = Depends(get_current_active_user)):
+    # Only admin can update users
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem alterar usuários")
+    
+    update_dict = user_data.model_dump(exclude={'password'})
+    if user_data.password:
+        update_dict['hashed_password'] = get_password_hash(user_data.password)
+    
+    await db.users.update_one({"id": user_id}, {"$set": update_dict})
+    return {"message": "Usuário atualizado com sucesso"}
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, current_user: User = Depends(get_current_active_user)):
+    # Only admin can delete users
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem excluir usuários")
+    
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    return {"message": "Usuário excluído com sucesso"}
+
 # ==================== PRODUCT ROUTES ====================
 
 @api_router.post("/products", response_model=Product)
