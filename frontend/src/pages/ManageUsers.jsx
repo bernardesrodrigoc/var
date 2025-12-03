@@ -10,6 +10,7 @@ import { authAPI, usersAPI, reportsAPI, goalsAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Edit, Trash2, User, Target, TrendingUp, Award } from 'lucide-react';
+import api from '@/lib/api';
 
 export default function ManageUsers() {
   const [users, setUsers] = useState([]);
