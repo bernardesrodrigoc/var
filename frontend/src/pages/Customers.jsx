@@ -114,6 +114,21 @@ export default function Customers() {
     }
   };
 
+  const handleViewHistory = async (customer) => {
+    try {
+      const response = await customersAPI.getSales(customer.id);
+      setCustomerHistory(response);
+      setEditingCustomer(customer);
+      setHistoryDialogOpen(true);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível carregar o histórico',
+      });
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-96">Carregando...</div>;
   }
