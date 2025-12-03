@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
+import { useFilial } from '@/context/FilialContext';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Plus, Send, DollarSign, Filter, Edit, Trash2, X } from 'lucide-react';
 import api from '@/lib/api';
@@ -14,7 +15,7 @@ import api from '@/lib/api';
 export default function TransferenciasAvancado() {
   const [transferencias, setTransferencias] = useState([]);
   const [filteredTransferencias, setFilteredTransferencias] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [vendedoras, setVendedoras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -34,19 +35,33 @@ export default function TransferenciasAvancado() {
   const [filterDataFim, setFilterDataFim] = useState('');
   
   const { toast } = useToast();
+  const { selectedFilial } = useFilial();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isAdmin = user.role === 'admin' || user.role === 'gerente';
+  const isVendedora = user.role === 'vendedora';
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (selectedFilial) {
+      loadData();
+    }
+  }, [selectedFilial]);
 
   useEffect(() => {
     applyFilters();
   }, [transferencias, filterVendedora, filterDataInicio, filterDataFim]);
 
   const loadData = async () => {
+    if (!selectedFilial) return;
+    
     try {
+      // Carregar vendedoras da filial atual
+      const usersResponse = await api.get('/users');
+      const vendedorasDaFilial = usersResponse.data.filter(
+        u => u.role === 'vendedora' && u.filial_id === selectedFilial.id && u.active
+      );
+      setVendedoras(vendedorasDaFilial);
+      
+      // Carregar transferências da filial
       if (isAdmin) {
         const [transferenciaData, usersData] = await Promise.all([
           api.get('/transferencias'),
