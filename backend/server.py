@@ -697,33 +697,37 @@ async def get_all_credits(current_user: User = Depends(get_current_active_user))
 # ==================== REPORTS ROUTES ====================
 
 @api_router.get("/reports/dashboard")
-async def get_dashboard_stats(current_user: User = Depends(get_current_active_user)):
+async def get_dashboard_stats(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
     # Vendedoras cannot access general dashboard
     if current_user.role == "vendedora":
         raise HTTPException(status_code=403, detail="Vendedoras não têm acesso ao dashboard geral")
     
+    # Build query filter
+    query = {}
+    if filial_id:
+        query["filial_id"] = filial_id
+    
     # Total products
-    total_products = await db.products.count_documents({})
+    total_products = await db.products.count_documents(query)
     
     # Total sales today
     today = datetime.now(timezone.utc).date()
-    sales_today = await db.sales.count_documents({
-        "data": {"$gte": today.isoformat()}
-    })
+    sales_query = {**query, "data": {"$gte": today.isoformat()}}
+    sales_today = await db.sales.count_documents(sales_query)
     
     # Revenue today
     sales_pipeline = [
-        {"$match": {"data": {"$gte": today.isoformat()}}},
+        {"$match": sales_query},
         {"$group": {"_id": None, "total": {"$sum": "$total"}}}
     ]
     revenue_result = await db.sales.aggregate(sales_pipeline).to_list(1)
     revenue_today = revenue_result[0]['total'] if revenue_result else 0
     
     # Total customers
-    total_customers = await db.customers.count_documents({})
+    total_customers = await db.customers.count_documents(query)
     
     # Low stock products (< 5)
-    low_stock = await db.products.count_documents({"quantidade": {"$lt": 5}})
+    low_stock = await db.products.count_documents({**query, "quantidade": {"$lt": 5}})
     
     return {
         "total_products": total_products,
