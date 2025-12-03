@@ -1028,6 +1028,181 @@ async def get_transferencias(current_user: User = Depends(get_current_active_use
             t['data'] = datetime.fromisoformat(t['data'])
     return transfs
 
+# ==================== BALANÇO DE ESTOQUE ROUTES ====================
+
+class BalancoItem(BaseModel):
+    product_id: str
+    codigo: str
+    descricao: str
+    quantidade_sistema: int
+    quantidade_contada: Optional[int] = None
+    diferenca: Optional[int] = None
+    conferido: bool = False
+
+class BalancoEstoqueBase(BaseModel):
+    data_inicio: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    data_conclusao: Optional[datetime] = None
+    usuario: str
+    items: List[BalancoItem]
+    status: str = "em_andamento"  # em_andamento, concluido
+    tipo: str = "semanal"  # semanal, mensal, completo
+
+class BalancoEstoque(BalancoEstoqueBase):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+
+@api_router.post("/balanco-estoque/iniciar")
+async def iniciar_balanco(tipo: str = "semanal", current_user: User = Depends(get_current_active_user)):
+    # Get all products
+    all_products = await db.products.find({}, {"_id": 0}).to_list(10000)
+    
+    # Get last balanco to avoid repetition
+    last_balanco = await db.balancos.find_one(
+        {"status": "concluido"},
+        {"_id": 0},
+        sort=[("data_conclusao", -1)]
+    )
+    
+    last_product_ids = []
+    if last_balanco:
+        last_product_ids = [item['product_id'] for item in last_balanco.get('items', [])]
+    
+    # Select products based on tipo
+    if tipo == "semanal":
+        # Select 10-15 random products not in last balanco
+        available_products = [p for p in all_products if p['id'] not in last_product_ids]
+        if not available_products:
+            # If all were checked, reset and use all
+            available_products = all_products
+        
+        import random
+        num_items = min(15, len(available_products))
+        selected_products = random.sample(available_products, num_items)
+    elif tipo == "mensal":
+        # Select 30-50 random products
+        import random
+        num_items = min(50, len(all_products))
+        available_products = [p for p in all_products if p['id'] not in last_product_ids]
+        if len(available_products) < num_items:
+            available_products = all_products
+        selected_products = random.sample(available_products, num_items)
+    else:
+        # Complete: all products
+        selected_products = all_products
+    
+    # Create balanco items
+    items = [
+        BalancoItem(
+            product_id=p['id'],
+            codigo=p['codigo'],
+            descricao=p['descricao'],
+            quantidade_sistema=p['quantidade'],
+            quantidade_contada=None,
+            diferenca=None,
+            conferido=False
+        )
+        for p in selected_products
+    ]
+    
+    balanco_obj = BalancoEstoque(
+        usuario=current_user.full_name,
+        items=items,
+        tipo=tipo
+    )
+    
+    doc = balanco_obj.model_dump()
+    doc['data_inicio'] = doc['data_inicio'].isoformat()
+    
+    await db.balancos.insert_one(doc)
+    return balanco_obj
+
+@api_router.get("/balanco-estoque/ativo")
+async def get_balanco_ativo(current_user: User = Depends(get_current_active_user)):
+    balanco = await db.balancos.find_one(
+        {"status": "em_andamento"},
+        {"_id": 0}
+    )
+    
+    if not balanco:
+        return None
+    
+    if isinstance(balanco.get('data_inicio'), str):
+        balanco['data_inicio'] = datetime.fromisoformat(balanco['data_inicio'])
+    if balanco.get('data_conclusao') and isinstance(balanco.get('data_conclusao'), str):
+        balanco['data_conclusao'] = datetime.fromisoformat(balanco['data_conclusao'])
+    
+    return balanco
+
+@api_router.put("/balanco-estoque/{balanco_id}/conferir/{product_id}")
+async def conferir_item_balanco(
+    balanco_id: str, 
+    product_id: str, 
+    quantidade_contada: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    balanco = await db.balancos.find_one({"id": balanco_id}, {"_id": 0})
+    if not balanco:
+        raise HTTPException(status_code=404, detail="Balanço não encontrado")
+    
+    # Update item
+    items = balanco['items']
+    for item in items:
+        if item['product_id'] == product_id:
+            item['quantidade_contada'] = quantidade_contada
+            item['diferenca'] = quantidade_contada - item['quantidade_sistema']
+            item['conferido'] = True
+            break
+    
+    await db.balancos.update_one(
+        {"id": balanco_id},
+        {"$set": {"items": items}}
+    )
+    
+    return {"message": "Item conferido com sucesso"}
+
+@api_router.post("/balanco-estoque/{balanco_id}/concluir")
+async def concluir_balanco(balanco_id: str, ajustar_estoque: bool = True, current_user: User = Depends(get_current_active_user)):
+    balanco = await db.balancos.find_one({"id": balanco_id}, {"_id": 0})
+    if not balanco:
+        raise HTTPException(status_code=404, detail="Balanço não encontrado")
+    
+    # If ajustar_estoque, update product quantities
+    if ajustar_estoque:
+        for item in balanco['items']:
+            if item['conferido'] and item.get('quantidade_contada') is not None:
+                await db.products.update_one(
+                    {"id": item['product_id']},
+                    {"$set": {
+                        "quantidade": item['quantidade_contada'],
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+    
+    # Mark as concluido
+    await db.balancos.update_one(
+        {"id": balanco_id},
+        {"$set": {
+            "status": "concluido",
+            "data_conclusao": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"message": "Balanço concluído com sucesso"}
+
+@api_router.get("/balanco-estoque/historico")
+async def get_historico_balancos(current_user: User = Depends(get_current_active_user)):
+    balancos = await db.balancos.find(
+        {"status": "concluido"},
+        {"_id": 0}
+    ).sort("data_conclusao", -1).limit(20).to_list(20)
+    
+    for b in balancos:
+        if isinstance(b.get('data_inicio'), str):
+            b['data_inicio'] = datetime.fromisoformat(b['data_inicio'])
+        if b.get('data_conclusao') and isinstance(b.get('data_conclusao'), str):
+            b['data_conclusao'] = datetime.fromisoformat(b['data_conclusao'])
+    
+    return balancos
+
 # ==================== ROOT ROUTE ====================
 
 @api_router.get("/")
