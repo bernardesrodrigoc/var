@@ -57,7 +57,7 @@ export default function ManageUsers() {
       const year = new Date().getFullYear();
       
       const perfData = {};
-      for (const user of data.filter(u => u.role === 'vendedora')) {
+      for (const user of usersData.filter(u => u.role === 'vendedora')) {
         try {
           const sales = await reportsAPI.getSalesByVendor(month, year);
           const userSales = sales.find(s => s._id === user.full_name);
