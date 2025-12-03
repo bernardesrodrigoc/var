@@ -13,5 +13,8 @@ export function formatCurrency(value) {
 }
 
 export function formatDate(date) {
-  return new Intl.DateFormat('pt-BR').format(new Date(date));
+  if (!date) return '-';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('pt-BR');
 }
