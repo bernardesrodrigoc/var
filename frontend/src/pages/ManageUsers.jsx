@@ -44,8 +44,12 @@ export default function ManageUsers() {
 
   const loadUsers = async () => {
     try {
-      const data = await usersAPI.getAll();
-      setUsers(data);
+      const [usersData, filiaisData] = await Promise.all([
+        usersAPI.getAll(),
+        api.get('/filiais'),
+      ]);
+      setUsers(usersData);
+      setFiliais(filiaisData.data);
       
       // Load performance for each vendedora
       const month = new Date().getMonth() + 1;
