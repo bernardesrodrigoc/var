@@ -243,6 +243,56 @@ export default function Customers() {
         </CardContent>
       </Card>
 
+      {/* History Dialog */}
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Histórico de Compras - {editingCustomer?.nome}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {customerHistory.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Nenhuma compra registrada
+              </div>
+            ) : (
+              customerHistory.map((sale) => (
+                <div key={sale.id} className="p-4 border rounded-lg space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {new Date(sale.data).toLocaleDateString('pt-BR')} às {sale.hora}
+                      </p>
+                      <p className="text-sm text-gray-500">Vendedor: {sale.vendedor}</p>
+                      <p className="text-sm text-gray-500">
+                        Pagamento: {sale.modalidade_pagamento}
+                        {sale.parcelas > 1 && ` - ${sale.parcelas}x`}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-indigo-600">{formatCurrency(sale.total)}</p>
+                      {sale.desconto > 0 && (
+                        <p className="text-xs text-green-600">Desconto: {formatCurrency(sale.desconto)}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="border-t pt-2">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Itens:</p>
+                    {sale.items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-sm text-gray-600">
+                        <span>{item.quantidade}x {item.descricao}</span>
+                        <span>{formatCurrency(item.subtotal)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Customer Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
