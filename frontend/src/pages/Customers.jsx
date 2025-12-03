@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { customersAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import { useFilial } from '@/context/FilialContext';
 import { Plus, Edit, Trash2, Search, User, History } from 'lucide-react';
+import api from '@/lib/api';
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
@@ -28,10 +30,13 @@ export default function Customers() {
     saldo_devedor: 0,
   });
   const { toast } = useToast();
+  const { selectedFilial } = useFilial();
 
   useEffect(() => {
-    loadCustomers();
-  }, []);
+    if (selectedFilial) {
+      loadCustomers();
+    }
+  }, [selectedFilial]);
 
   useEffect(() => {
     const filtered = customers.filter(
@@ -44,10 +49,12 @@ export default function Customers() {
   }, [searchTerm, customers]);
 
   const loadCustomers = async () => {
+    if (!selectedFilial) return;
+    
     try {
-      const data = await customersAPI.getAll();
-      setCustomers(data);
-      setFilteredCustomers(data);
+      const response = await api.get(`/customers?filial_id=${selectedFilial.id}`);
+      setCustomers(response.data);
+      setFilteredCustomers(response.data);
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -72,6 +79,7 @@ export default function Customers() {
         endereco: '',
         limite_credito: 0,
         saldo_devedor: 0,
+        filial_id: selectedFilial?.id || '',
       });
     }
     setDialogOpen(true);
