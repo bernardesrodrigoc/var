@@ -485,6 +485,28 @@ export default function SalesAdvanced() {
               <CardTitle>Finalizar Venda</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Vendedor Selector (for admin/gerente) */}
+              {(user.role === 'admin' || user.role === 'gerente') && (
+                <div className="space-y-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                  <Label className="flex items-center gap-2 text-indigo-900">
+                    <User className="w-4 h-4" />
+                    Vendedor Responsável *
+                  </Label>
+                  <Select value={selectedVendedor} onValueChange={setSelectedVendedor}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o vendedor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vendedores.map((vendedor) => (
+                        <SelectItem key={vendedor.id} value={vendedor.id}>
+                          {vendedor.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Customer */}
               <div className="space-y-2">
                 <Label>Cliente (Opcional)</Label>
