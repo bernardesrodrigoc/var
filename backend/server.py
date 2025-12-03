@@ -1028,16 +1028,41 @@ async def create_transferencia(transf: TransferenciaBase, current_user: User = D
     return transf_obj
 
 @api_router.get("/transferencias")
-async def get_transferencias(current_user: User = Depends(get_current_active_user)):
-    # Only admin can see all transferencias
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Apenas administradores podem ver transferências")
+async def get_transferencias(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
+    # Only admin/gerente can see all transferencias
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Sem permissão para ver transferências")
     
-    transfs = await db.transferencias.find({}, {"_id": 0}).to_list(1000)
+    query = {}
+    if filial_id:
+        query["filial_id"] = filial_id
+    
+    transfs = await db.transferencias.find(query, {"_id": 0}).to_list(1000)
     for t in transfs:
         if isinstance(t.get('data'), str):
             t['data'] = datetime.fromisoformat(t['data'])
     return transfs
+
+@api_router.put("/transferencias/{transf_id}")
+async def update_transferencia(transf_id: str, transf_data: TransferenciaBase, current_user: User = Depends(get_current_active_user)):
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    
+    await db.transferencias.update_one(
+        {"id": transf_id},
+        {"$set": transf_data.model_dump(exclude={'vendedora_id', 'vendedora_nome', 'filial_id'})}
+    )
+    return {"message": "Transferência atualizada"}
+
+@api_router.delete("/transferencias/{transf_id}")
+async def delete_transferencia(transf_id: str, current_user: User = Depends(get_current_active_user)):
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    
+    result = await db.transferencias.delete_one({"id": transf_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Transferência não encontrada")
+    return {"message": "Transferência excluída"}
 
 # ==================== FILIAIS ROUTES ====================
 
