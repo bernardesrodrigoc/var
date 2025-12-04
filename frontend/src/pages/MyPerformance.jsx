@@ -117,27 +117,41 @@ export default function MyPerformance() {
         </Card>
       </div>
 
+      {/* Progresso Visual */}
       <Card>
         <CardHeader>
           <CardTitle>Progresso da Meta</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Barra de progresso principal */}
             <div className="relative">
-              <div className="h-8 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500"
-                  style={{ width: `${Math.min(performance.percentual_atingido, 100)}%` }}
-                />
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-bold text-white drop-shadow-lg">
-                  {performance.percentual_atingido.toFixed(1)}% atingido
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">Meta do Mês</span>
+                <span className="text-sm font-semibold text-indigo-600">
+                  {formatCurrency(performance.goal)}
                 </span>
+              </div>
+              <div className="h-10 bg-gray-200 rounded-full overflow-hidden relative">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500 flex items-center justify-end pr-3"
+                  style={{ width: `${Math.min(percentualAtingido, 100)}%` }}
+                >
+                  {percentualAtingido >= 10 && (
+                    <span className="text-white font-bold text-sm">
+                      {formatCurrency(performance.total_vendas)}
+                    </span>
+                  )}
+                </div>
+                {percentualAtingido < 10 && (
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-semibold text-sm">
+                    {formatCurrency(performance.total_vendas)}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Próxima faixa de bônus */}
+            {/* Motivação */}
             {(() => {
               const proximaFaixa = comissaoConfig.bonus_tiers
                 .filter(t => t.percentual_meta > percentualAtingido)
@@ -146,19 +160,27 @@ export default function MyPerformance() {
               if (proximaFaixa) {
                 const faltaVender = ((proximaFaixa.percentual_meta / 100) * performance.goal) - performance.total_vendas;
                 return (
-                  <div className="p-4 bg-blue-50 rounded-lg">
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                     <p className="text-sm text-gray-700">
-                      <strong>Venda mais {formatCurrency(faltaVender)}</strong> para atingir{' '}
-                      <strong>{proximaFaixa.percentual_meta}% da meta</strong> e ganhar{' '}
-                      <strong>{formatCurrency(proximaFaixa.valor_bonus)}</strong> de bônus!
+                      🎯 <strong>Falta apenas {formatCurrency(faltaVender)}</strong> para você conquistar mais{' '}
+                      <strong className="text-green-600">{formatCurrency(proximaFaixa.valor_bonus)}</strong> de bônus!
+                    </p>
+                  </div>
+                );
+              } else if (percentualAtingido >= 100) {
+                return (
+                  <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border-2 border-yellow-500">
+                    <p className="text-sm font-bold text-yellow-800">
+                      🎉 Parabéns! Você bateu a meta e conquistou {formatCurrency(bonusAtingido)} de bônus!
                     </p>
                   </div>
                 );
               } else {
+                const faltaParaMeta = performance.goal - performance.total_vendas;
                 return (
-                  <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border-2 border-yellow-500">
-                    <p className="text-sm font-bold text-yellow-800">
-                      🎉 Parabéns! Você atingiu a maior faixa de bonificação com {formatCurrency(bonusAtingido)} de bônus!
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-sm text-gray-700">
+                      💪 Continue assim! Faltam <strong>{formatCurrency(faltaParaMeta)}</strong> para bater sua meta!
                     </p>
                   </div>
                 );
