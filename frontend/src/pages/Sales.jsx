@@ -53,10 +53,14 @@ export default function SalesAdvanced() {
 
   // Selecionar vendedor automaticamente quando a lista de vendedores for carregada
   useEffect(() => {
-    if (vendedores.length > 0 && user.role === 'vendedora' && !selectedVendedor) {
-      setSelectedVendedor(user.id || user.username);
+    if (vendedores.length > 0 && user.role === 'vendedora') {
+      // Procurar o vendedor atual na lista
+      const currentVendedor = vendedores.find(v => v.id === user.id || v.username === user.username);
+      if (currentVendedor && !selectedVendedor) {
+        setSelectedVendedor(currentVendedor.id);
+      }
     }
-  }, [vendedores]);
+  }, [vendedores, user.id, user.username]);
 
   useEffect(() => {
     if (selectedCustomer !== 'none') {
