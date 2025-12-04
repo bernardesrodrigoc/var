@@ -51,6 +51,27 @@ export default function Reports() {
     }
   };
 
+  const handleEstornar = async (saleId) => {
+    if (!window.confirm('Tem certeza que deseja estornar esta venda? Os produtos retornarão ao estoque.')) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(`/sales/${saleId}/estornar`);
+      toast({
+        title: 'Venda estornada!',
+        description: `${response.data.produtos_devolvidos} produtos devolvidos ao estoque`,
+      });
+      loadReports();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao estornar',
+        description: error.response?.data?.detail || 'Não foi possível estornar a venda',
+      });
+    }
+  };
+
   const months = [
     { value: 1, label: 'Janeiro' },
     { value: 2, label: 'Fevereiro' },
