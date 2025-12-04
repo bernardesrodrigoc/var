@@ -537,6 +537,16 @@ class APITester:
                     print(f"✅ Cleaned up vale: {resource_id}")
                 else:
                     print(f"❌ Failed to clean up vale: {resource_id}")
+            elif resource_type == "product":
+                response = self.make_request(
+                    "DELETE",
+                    f"/products/{resource_id}",
+                    token=self.admin_token
+                )
+                if response and response.status_code == 200:
+                    print(f"✅ Cleaned up product: {resource_id}")
+                else:
+                    print(f"❌ Failed to clean up product: {resource_id}")
             
             # Note: We don't clean up sales as they are marked as estornada
             # which is the intended behavior for the system
