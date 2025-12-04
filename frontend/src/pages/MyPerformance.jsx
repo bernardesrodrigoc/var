@@ -130,7 +130,7 @@ export default function MyPerformance() {
               <div className="flex justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Meta do Mês</span>
                 <span className="text-sm font-semibold text-indigo-600">
-                  {formatCurrency(performance.goal)}
+                  {formatCurrency(meta)}
                 </span>
               </div>
               <div className="h-10 bg-gray-200 rounded-full overflow-hidden relative">
