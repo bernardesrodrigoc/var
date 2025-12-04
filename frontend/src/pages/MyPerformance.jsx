@@ -206,6 +206,63 @@ export default function MyPerformance() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Faixas de Bonificação */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Faixas de Bonificação</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {comissaoConfig.bonus_tiers
+              .sort((a, b) => a.percentual_meta - b.percentual_meta)
+              .map((tier, index) => {
+                const isAtingida = percentualAtingido >= tier.percentual_meta;
+                const isAtual = bonusAtingido === tier.valor_bonus && isAtingida;
+                
+                return (
+                  <div 
+                    key={index}
+                    className={`p-4 rounded-lg border-2 ${
+                      isAtual 
+                        ? 'bg-green-50 border-green-500' 
+                        : isAtingida 
+                        ? 'bg-gray-100 border-gray-300'
+                        : 'bg-white border-gray-200'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {isAtual && '⭐ '}
+                          Atingir {tier.percentual_meta}% da meta
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Vendas de {formatCurrency((tier.percentual_meta / 100) * performance.goal)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-xl font-bold ${
+                          isAtual ? 'text-green-600' : 'text-purple-600'
+                        }`}>
+                          {formatCurrency(tier.valor_bonus)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {isAtingida ? (isAtual ? 'Faixa atual' : 'Atingido') : 'Disponível'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-xs text-yellow-800">
+              💡 Você receberá o bônus da maior faixa atingida
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
