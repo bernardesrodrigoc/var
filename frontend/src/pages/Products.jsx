@@ -492,6 +492,134 @@ export default function Products() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Importar Produtos do Excel</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-semibold text-blue-900 mb-2">📋 Instruções:</h3>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
+                <li>Baixe o template clicando no botão "Baixar Template"</li>
+                <li>Preencha a planilha com os dados dos produtos</li>
+                <li>Campos obrigatórios: <strong>codigo</strong> e <strong>descricao</strong></li>
+                <li>Se o código já existir, o produto será atualizado</li>
+                <li>Faça upload do arquivo preenchido abaixo</li>
+              </ol>
+            </div>
+
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileUpload}
+                disabled={importing}
+                className="hidden"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className={`cursor-pointer ${importing ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                <p className="text-lg font-medium text-gray-700 mb-2">
+                  {importing ? 'Processando...' : 'Clique para selecionar arquivo'}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Formatos aceitos: .xlsx, .xls
+                </p>
+              </label>
+            </div>
+
+            {importing && (
+              <div className="flex items-center justify-center gap-2 text-blue-600">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <span>Processando produtos...</span>
+              </div>
+            )}
+
+            {importResult && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <div>
+                          <p className="text-2xl font-bold text-green-600">{importResult.success}</p>
+                          <p className="text-xs text-gray-600">Sucesso</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 text-blue-500" />
+                        <div>
+                          <p className="text-2xl font-bold text-blue-600">{importResult.created}</p>
+                          <p className="text-xs text-gray-600">Criados</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2">
+                        <Edit className="w-5 h-5 text-orange-500" />
+                        <div>
+                          <p className="text-2xl font-bold text-orange-600">{importResult.updated}</p>
+                          <p className="text-xs text-gray-600">Atualizados</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {importResult.errors > 0 && (
+                  <Card className="border-red-200">
+                    <CardHeader>
+                      <CardTitle className="text-red-600 flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5" />
+                        {importResult.errors} erro(s) encontrado(s)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="max-h-40 overflow-y-auto space-y-2">
+                        {importResult.details
+                          .filter(d => d.status === 'erro')
+                          .map((detail, idx) => (
+                            <div key={idx} className="text-sm bg-red-50 p-2 rounded">
+                              <strong>{detail.codigo}:</strong> {detail.message}
+                            </div>
+                          ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setImportDialogOpen(false);
+                setImportResult(null);
+              }}
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
