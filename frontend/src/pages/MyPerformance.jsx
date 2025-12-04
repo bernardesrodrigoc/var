@@ -176,23 +176,33 @@ export default function MyPerformance() {
               </div>
             </div>
 
-            {performance.tier_atual < 4 && (
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-gray-700">
-                  <strong>Falta {performance.falta_percentual_proxima_etapa.toFixed(1)}%</strong> para
-                  atingir o nível <strong>{nextTierInfo.name}</strong> e ganhar mais{' '}
-                  <strong>{formatCurrency(nextTierInfo.bonus - tierInfo.bonus)}</strong> de bônus!
-                </p>
-              </div>
-            )}
-            
-            {performance.tier_atual === 4 && (
-              <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border-2 border-yellow-500">
-                <p className="text-sm font-bold text-yellow-800">
-                  🎉 Parabéns! Você atingiu o nível máximo (Diamante) com {formatCurrency(performance.bonus_valor)} de bônus!
-                </p>
-              </div>
-            )}
+            {/* Próxima faixa de bônus */}
+            {(() => {
+              const proximaFaixa = comissaoConfig.bonus_tiers
+                .filter(t => t.percentual_meta > percentualAtingido)
+                .sort((a, b) => a.percentual_meta - b.percentual_meta)[0];
+              
+              if (proximaFaixa) {
+                const faltaVender = ((proximaFaixa.percentual_meta / 100) * performance.goal) - performance.total_vendas;
+                return (
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      <strong>Venda mais {formatCurrency(faltaVender)}</strong> para atingir{' '}
+                      <strong>{proximaFaixa.percentual_meta}% da meta</strong> e ganhar{' '}
+                      <strong>{formatCurrency(proximaFaixa.valor_bonus)}</strong> de bônus!
+                    </p>
+                  </div>
+                );
+              } else {
+                return (
+                  <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border-2 border-yellow-500">
+                    <p className="text-sm font-bold text-yellow-800">
+                      🎉 Parabéns! Você atingiu a maior faixa de bonificação com {formatCurrency(bonusAtingido)} de bônus!
+                    </p>
+                  </div>
+                );
+              }
+            })()}
           </div>
         </CardContent>
       </Card>
