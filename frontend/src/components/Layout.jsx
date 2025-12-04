@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, Users, TrendingUp, LogOut, Store, Calculator, Send, DollarSign, Building2, ClipboardCheck, MapPin } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Users, TrendingUp, LogOut, Store, Calculator, Send, DollarSign, Building2, ClipboardCheck, MapPin, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFilial } from '@/context/FilialContext';
 
