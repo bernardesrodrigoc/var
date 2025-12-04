@@ -85,7 +85,7 @@ export default function MyPerformance() {
             <TrendingUp className="w-5 h-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{formatCurrency(performance.total_vendas)}</div>
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalVendas)}</div>
             <p className="text-xs text-gray-500 mt-1">{performance.num_vendas} vendas realizadas</p>
           </CardContent>
         </Card>
