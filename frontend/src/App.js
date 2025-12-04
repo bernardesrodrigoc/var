@@ -14,6 +14,7 @@ import Vales from '@/pages/Vales';
 import Transferencias from '@/pages/Transferencias';
 import Filiais from '@/pages/Filiais';
 import BalancoEstoque from '@/pages/BalancoEstoque';
+import ComissaoConfig from '@/pages/ComissaoConfig';
 import { FilialProvider } from '@/context/FilialContext';
 import { Toaster } from '@/components/ui/toaster';
 import '@/App.css';
