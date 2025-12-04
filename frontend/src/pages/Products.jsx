@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,8 +9,9 @@ import { productsAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { useFilial } from '@/context/FilialContext';
-import { Plus, Edit, Trash2, Search, Barcode } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Barcode, Upload, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
+import * as XLSX from 'xlsx';
 
 export default function Products() {
   const [products, setProducts] = useState([]);
@@ -18,6 +19,9 @@ export default function Products() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState({
     codigo: '',
@@ -31,6 +35,7 @@ export default function Products() {
   const { selectedFilial } = useFilial();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const canEdit = user.role === 'admin' || user.role === 'gerente';
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (selectedFilial) {
