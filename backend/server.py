@@ -579,6 +579,55 @@ async def create_sale(sale: SaleCreate, current_user: User = Depends(get_current
     
     return sale_obj
 
+@api_router.delete("/sales/{sale_id}/estornar")
+async def estornar_venda(sale_id: str, current_user: User = Depends(get_current_active_user)):
+    # Apenas admin e gerente podem estornar vendas
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Apenas administradores e gerentes podem estornar vendas")
+    
+    # Buscar venda
+    sale = await db.sales.find_one({"id": sale_id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venda não encontrada")
+    
+    # Verificar se venda já foi estornada
+    if sale.get('estornada', False):
+        raise HTTPException(status_code=400, detail="Esta venda já foi estornada")
+    
+    # Devolver produtos ao estoque
+    for item in sale['items']:
+        product = await db.products.find_one({"id": item['product_id']}, {"_id": 0})
+        if product:
+            new_quantity = product['quantidade'] + item['quantidade']
+            await db.products.update_one(
+                {"id": item['product_id']},
+                {"$set": {"quantidade": new_quantity, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+    
+    # Reverter crédito/débito do cliente se aplicável
+    if sale.get('customer_id'):
+        customer = await db.customers.find_one({"id": sale['customer_id']}, {"_id": 0})
+        if customer:
+            if sale['modalidade_pagamento'] == "Credito":
+                # Reverter débito
+                new_saldo = max(0, customer.get('saldo_devedor', 0) - sale['total'])
+                await db.customers.update_one(
+                    {"id": sale['customer_id']},
+                    {"$set": {"saldo_devedor": new_saldo}}
+                )
+    
+    # Marcar venda como estornada
+    await db.sales.update_one(
+        {"id": sale_id},
+        {"$set": {
+            "estornada": True,
+            "estornada_em": datetime.now(timezone.utc).isoformat(),
+            "estornada_por": current_user.username
+        }}
+    )
+    
+    return {"message": "Venda estornada com sucesso", "produtos_devolvidos": len(sale['items'])}
+
 @api_router.get("/sales", response_model=List[Sale])
 async def get_sales(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
     query = {}
