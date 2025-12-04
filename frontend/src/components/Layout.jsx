@@ -36,6 +36,7 @@ export default function Layout() {
     ...(isAdmin ? [{ name: 'Vendedoras', href: '/manage-users', icon: Users }] : []),
     ...(isAdmin ? [{ name: 'Vales', href: '/vales', icon: DollarSign }] : []),
     ...(isAdmin ? [{ name: 'Filiais', href: '/filiais', icon: Building2 }] : []),
+    ...(isAdmin ? [{ name: 'Comissões', href: '/comissao-config', icon: Settings }] : []),
     { name: 'Balanço', href: '/balanco-estoque', icon: ClipboardCheck },
   ];
 
