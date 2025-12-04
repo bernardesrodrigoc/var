@@ -134,6 +134,149 @@ export default function Products() {
     }
   };
 
+  // Função para baixar template Excel
+  const downloadTemplate = () => {
+    const template = [
+      {
+        codigo: 'PROD001',
+        descricao: 'Exemplo de Produto',
+        quantidade: 10,
+        preco_custo: 50.00,
+        preco_venda: 100.00,
+        categoria: 'Eletrônicos'
+      }
+    ];
+    
+    const ws = XLSX.utils.json_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+    
+    // Ajustar largura das colunas
+    ws['!cols'] = [
+      { wch: 15 }, // codigo
+      { wch: 30 }, // descricao
+      { wch: 10 }, // quantidade
+      { wch: 12 }, // preco_custo
+      { wch: 12 }, // preco_venda
+      { wch: 15 }  // categoria
+    ];
+    
+    XLSX.writeFile(wb, `template_produtos_${selectedFilial.nome}.xlsx`);
+    toast({ title: 'Template baixado com sucesso!' });
+  };
+
+  // Função para processar arquivo Excel
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (jsonData.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Arquivo vazio',
+          description: 'O arquivo não contém dados',
+        });
+        setImporting(false);
+        return;
+      }
+
+      // Validar e processar produtos
+      const results = {
+        success: 0,
+        errors: 0,
+        updated: 0,
+        created: 0,
+        details: []
+      };
+
+      for (const row of jsonData) {
+        try {
+          // Validar campos obrigatórios
+          if (!row.codigo || !row.descricao) {
+            results.errors++;
+            results.details.push({
+              codigo: row.codigo || 'SEM_CODIGO',
+              status: 'erro',
+              message: 'Código e descrição são obrigatórios'
+            });
+            continue;
+          }
+
+          // Preparar dados do produto
+          const productData = {
+            codigo: String(row.codigo).trim(),
+            descricao: String(row.descricao).trim(),
+            quantidade: parseInt(row.quantidade) || 0,
+            preco_custo: parseFloat(row.preco_custo) || 0,
+            preco_venda: parseFloat(row.preco_venda) || 0,
+            categoria: row.categoria ? String(row.categoria).trim() : 'Geral',
+            filial_id: selectedFilial.id
+          };
+
+          // Verificar se produto já existe
+          const existingProduct = products.find(p => p.codigo === productData.codigo);
+
+          if (existingProduct) {
+            // Atualizar produto existente
+            await api.put(`/products/${existingProduct.id}`, productData);
+            results.updated++;
+            results.details.push({
+              codigo: productData.codigo,
+              status: 'atualizado',
+              message: 'Produto atualizado com sucesso'
+            });
+          } else {
+            // Criar novo produto
+            await api.post('/products', productData);
+            results.created++;
+            results.details.push({
+              codigo: productData.codigo,
+              status: 'criado',
+              message: 'Produto criado com sucesso'
+            });
+          }
+
+          results.success++;
+        } catch (error) {
+          results.errors++;
+          results.details.push({
+            codigo: row.codigo || 'DESCONHECIDO',
+            status: 'erro',
+            message: error.response?.data?.detail || 'Erro ao processar produto'
+          });
+        }
+      }
+
+      setImportResult(results);
+      loadProducts();
+      
+      toast({
+        title: 'Importação concluída!',
+        description: `${results.success} produtos processados com sucesso, ${results.errors} erros`,
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao processar arquivo',
+        description: 'Verifique se o arquivo está no formato correto',
+      });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-96">Carregando...</div>;
   }
