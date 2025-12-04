@@ -127,7 +127,7 @@ export default function MyPerformance() {
             <div className="text-2xl font-bold text-yellow-600">
               {formatCurrency(performance.comissao_total)}
             </div>
-            <p className="text-xs text-gray-500 mt-1">1% vendas + bônus</p>
+            <p className="text-xs text-gray-500 mt-1">Vendas + Bônus</p>
           </CardContent>
         </Card>
       </div>
