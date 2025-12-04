@@ -269,8 +269,8 @@ export default function ComissaoConfig() {
 
           <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800">
-              <strong>💡 Dica:</strong> As vendedoras podem atingir múltiplas faixas. 
-              Por exemplo, quem bater 110% da meta ganhará todos os bônus das faixas anteriores também.
+              <strong>💡 Dica:</strong> A vendedora receberá o bônus da maior faixa atingida. 
+              Por exemplo, quem bater 110% da meta ganhará apenas o bônus de R$ 300 (110%), não os valores anteriores.
             </p>
           </div>
         </CardContent>
