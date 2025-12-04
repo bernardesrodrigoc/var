@@ -41,7 +41,7 @@ export default function MyPerformance() {
     );
   }
 
-  if (!performance) {
+  if (!performance || !comissaoConfig) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-lg text-gray-500">Erro ao carregar dados</div>
@@ -49,16 +49,23 @@ export default function MyPerformance() {
     );
   }
 
-  const getTierInfo = (tier) => {
-    const tiers = {
-      0: { name: 'Sem Bônus', color: 'bg-gray-400', bonus: 0, minPercent: 0 },
-      1: { name: 'Bronze', color: 'bg-orange-600', bonus: 40, minPercent: 16 },
-      2: { name: 'Prata', color: 'bg-gray-400', bonus: 100, minPercent: 27 },
-      3: { name: 'Ouro', color: 'bg-yellow-500', bonus: 180, minPercent: 37 },
-      4: { name: 'Diamante', color: 'bg-blue-600', bonus: 430, minPercent: 68 },
-    };
-    return tiers[tier] || tiers[0];
-  };
+  // Calcular comissão base
+  const comissaoBase = (performance.total_vendas * comissaoConfig.percentual_comissao) / 100;
+
+  // Calcular bônus baseado na configuração (maior faixa atingida)
+  const percentualAtingido = performance.goal > 0 ? (performance.total_vendas / performance.goal) * 100 : 0;
+  
+  let bonusAtingido = 0;
+  const sortedTiers = [...comissaoConfig.bonus_tiers].sort((a, b) => b.percentual_meta - a.percentual_meta);
+  
+  for (const tier of sortedTiers) {
+    if (percentualAtingido >= tier.percentual_meta) {
+      bonusAtingido = tier.valor_bonus;
+      break;
+    }
+  }
+
+  const totalGanhos = comissaoBase + bonusAtingido;
 
   const tierInfo = getTierInfo(performance.tier_atual);
   const nextTierInfo = getTierInfo(performance.tier_atual + 1);
