@@ -160,7 +160,7 @@ export default function MyPerformance() {
                 .sort((a, b) => a.percentual_meta - b.percentual_meta)[0];
               
               if (proximaFaixa) {
-                const faltaVender = ((proximaFaixa.percentual_meta / 100) * meta) - performance.total_vendas;
+                const faltaVender = ((proximaFaixa.percentual_meta / 100) * meta) - totalVendas;
                 return (
                   <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                     <p className="text-sm text-gray-700">
