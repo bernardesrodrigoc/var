@@ -51,17 +51,26 @@ export default function Reports() {
     }
   };
 
-  const handleEstornar = async (saleId) => {
-    if (!window.confirm('Tem certeza que deseja estornar esta venda? Os produtos retornarão ao estoque.')) {
+  const handleEstornar = async (saleId, saleData) => {
+    const confirmMessage = `Tem certeza que deseja estornar esta venda?
+
+Vendedor: ${saleData.vendedor}
+Valor: ${formatCurrency(saleData.total)}
+Itens: ${saleData.items.length}
+
+Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
     try {
       const response = await api.delete(`/sales/${saleId}/estornar`);
       toast({
-        title: 'Venda estornada!',
-        description: `${response.data.produtos_devolvidos} produtos devolvidos ao estoque`,
+        title: 'Venda estornada com sucesso!',
+        description: `${response.data.produtos_devolvidos} produtos devolvidos. Valor: ${formatCurrency(response.data.valor_estornado)}`,
       });
+      // Recarregar todos os dados para atualizar dashboard e relatórios
       loadReports();
     } catch (error) {
       toast({
