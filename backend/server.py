@@ -811,12 +811,12 @@ async def get_dashboard_stats(filial_id: Optional[str] = None, current_user: Use
     # Total products
     total_products = await db.products.count_documents(query)
     
-    # Total sales today
+    # Total sales today (excluindo estornadas)
     today = datetime.now(timezone.utc).date()
-    sales_query = {**query, "data": {"$gte": today.isoformat()}}
+    sales_query = {**query, "data": {"$gte": today.isoformat()}, "estornada": {"$ne": True}}
     sales_today = await db.sales.count_documents(sales_query)
     
-    # Revenue today
+    # Revenue today (excluindo estornadas)
     sales_pipeline = [
         {"$match": sales_query},
         {"$group": {"_id": None, "total": {"$sum": "$total"}}}
