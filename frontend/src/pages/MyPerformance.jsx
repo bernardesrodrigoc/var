@@ -177,11 +177,11 @@ export default function MyPerformance() {
                   </div>
                 );
               } else {
-                const faltaParaMeta = performance.goal - performance.total_vendas;
+                const faltaParaMeta = meta - performance.total_vendas;
                 return (
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <p className="text-sm text-gray-700">
-                      💪 Continue assim! Faltam <strong>{formatCurrency(faltaParaMeta)}</strong> para bater sua meta!
+                      💪 Continue assim! Faltam <strong>{formatCurrency(Math.max(0, faltaParaMeta))}</strong> para bater sua meta!
                     </p>
                   </div>
                 );
