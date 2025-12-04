@@ -844,7 +844,7 @@ async def get_sales_by_vendor(mes: Optional[int] = None, ano: Optional[int] = No
     if current_user.role == "vendedora":
         raise HTTPException(status_code=403, detail="Vendedoras não têm acesso a relatórios gerais")
     
-    match_stage = {}
+    match_stage = {"estornada": {"$ne": True}}  # Excluir vendas estornadas
     if filial_id:
         match_stage["filial_id"] = filial_id
     
@@ -858,7 +858,7 @@ async def get_sales_by_vendor(mes: Optional[int] = None, ano: Optional[int] = No
         match_stage["data"] = {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
     
     pipeline = [
-        {"$match": match_stage} if match_stage else {"$match": {}},
+        {"$match": match_stage},
         {"$group": {
             "_id": "$vendedor",
             "total_vendas": {"$sum": "$total"},
