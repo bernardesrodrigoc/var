@@ -310,11 +310,18 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 
 @api_router.get("/users", response_model=List[User])
 async def get_all_users(current_user: User = Depends(get_current_active_user)):
-    # Only admin can list users
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Apenas administradores podem listar usuários")
+    # Admin vê todos os usuários
+    if current_user.role == "admin":
+        users = await db.users.find({}, {"_id": 0, "hashed_password": 0}).to_list(100)
+    # Gerentes e vendedoras veem apenas usuários da mesma filial
+    elif current_user.role in ["gerente", "vendedora"]:
+        users = await db.users.find(
+            {"filial_id": current_user.filial_id}, 
+            {"_id": 0, "hashed_password": 0}
+        ).to_list(100)
+    else:
+        raise HTTPException(status_code=403, detail="Sem permissão para listar usuários")
     
-    users = await db.users.find({}, {"_id": 0, "hashed_password": 0}).to_list(100)
     for u in users:
         if isinstance(u.get('created_at'), str):
             u['created_at'] = datetime.fromisoformat(u['created_at'])
