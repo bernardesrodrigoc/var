@@ -339,6 +339,14 @@ export default function Products() {
               <Download className="w-4 h-4 mr-2" />
               Baixar Template
             </Button>
+            <Button 
+              onClick={exportProducts} 
+              variant="outline"
+              disabled={products.length === 0}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Exportar Produtos
+            </Button>
             <Button onClick={() => setImportDialogOpen(true)} variant="outline">
               <Upload className="w-4 h-4 mr-2" />
               Importar Excel
