@@ -33,6 +33,7 @@ export default function Layout() {
     { name: 'Fechamento', href: '/fechamento-caixa', icon: Calculator },
     { name: 'Transferências', href: '/transferencias', icon: Send },
     ...(!showPerformance ? [{ name: 'Relatórios', href: '/reports', icon: TrendingUp }] : []),
+    ...(isAdmin ? [{ name: 'Pagamentos', href: '/pagamentos', icon: Wallet }] : []),
     ...(isAdmin ? [{ name: 'Vendedoras', href: '/manage-users', icon: Users }] : []),
     ...(isAdmin ? [{ name: 'Vales', href: '/vales', icon: DollarSign }] : []),
     ...(isAdmin ? [{ name: 'Filiais', href: '/filiais', icon: Building2 }] : []),
