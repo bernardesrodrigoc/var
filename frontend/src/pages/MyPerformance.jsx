@@ -141,13 +141,13 @@ export default function MyPerformance() {
                 >
                   {percentualAtingido >= 10 && (
                     <span className="text-white font-bold text-sm">
-                      {formatCurrency(performance.total_vendas)}
+                      {formatCurrency(totalVendas)}
                     </span>
                   )}
                 </div>
                 {percentualAtingido < 10 && (
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-semibold text-sm">
-                    {formatCurrency(performance.total_vendas)}
+                    {formatCurrency(totalVendas)}
                   </span>
                 )}
               </div>
