@@ -53,7 +53,8 @@ export default function MyPerformance() {
   const comissaoBase = (performance.total_vendas * comissaoConfig.percentual_comissao) / 100;
 
   // Calcular bônus baseado na configuração (maior faixa atingida)
-  const percentualAtingido = performance.goal > 0 ? (performance.total_vendas / performance.goal) * 100 : 0;
+  const meta = performance.meta_vendas || performance.goal || 0;
+  const percentualAtingido = meta > 0 ? (performance.total_vendas / meta) * 100 : 0;
   
   let bonusAtingido = 0;
   const sortedTiers = [...comissaoConfig.bonus_tiers].sort((a, b) => b.percentual_meta - a.percentual_meta);
