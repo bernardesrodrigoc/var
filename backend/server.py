@@ -1012,6 +1012,141 @@ async def get_my_performance(current_user: User = Depends(get_current_active_use
         "falta_percentual_proxima_etapa": max(0, falta_percentual)
     }
 
+
+@api_router.get("/reports/pagamentos-detalhados")
+async def get_pagamentos_detalhados(
+    mes: int, 
+    ano: int, 
+    filial_id: Optional[str] = None, 
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Relatório detalhado de pagamentos para admins
+    Mostra por vendedor: vendas, comissões, bônus, vales e total a pagar
+    """
+    # Only admin can access this report
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores têm acesso a este relatório")
+    
+    # Build query
+    match_stage = {"estornada": {"$ne": True}}  # Excluir vendas estornadas
+    if filial_id:
+        match_stage["filial_id"] = filial_id
+    
+    # Date range for the selected month
+    start_date = datetime(ano, mes, 1, tzinfo=timezone.utc)
+    if mes == 12:
+        end_date = datetime(ano + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(ano, mes + 1, 1, tzinfo=timezone.utc)
+    
+    match_stage["data"] = {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+    
+    # Aggregate sales by vendedor
+    pipeline = [
+        {"$match": match_stage},
+        {"$group": {
+            "_id": "$vendedor",
+            "vendedora_id": {"$first": "$vendedora_id"},
+            "total_vendas": {"$sum": "$total"},
+            "num_vendas": {"$sum": 1},
+            "total_pecas": {"$sum": {"$sum": "$items.quantidade"}}
+        }}
+    ]
+    
+    sales_by_vendor = await db.sales.aggregate(pipeline).to_list(100)
+    
+    # Get commission config for the filial
+    if filial_id:
+        comissao_config = await db.comissao_config.find_one({"filial_id": filial_id}, {"_id": 0})
+    else:
+        comissao_config = None
+    
+    # Use default config if not found
+    if not comissao_config:
+        comissao_config = {
+            "percentual_comissao": 1.0,
+            "bonus_tiers": [
+                {"percentual_meta": 80, "valor_bonus": 100},
+                {"percentual_meta": 90, "valor_bonus": 150},
+                {"percentual_meta": 100, "valor_bonus": 200},
+                {"percentual_meta": 110, "valor_bonus": 300},
+            ]
+        }
+    
+    # For each vendor, calculate commission, bonus, and vales
+    result = []
+    for vendor_data in sales_by_vendor:
+        vendedor_nome = vendor_data["_id"]
+        vendedora_id = vendor_data.get("vendedora_id", "")
+        total_vendas = vendor_data["total_vendas"]
+        num_vendas = vendor_data["num_vendas"]
+        total_pecas = vendor_data.get("total_pecas", 0)
+        
+        # Calculate base commission
+        percentual_comissao = comissao_config.get("percentual_comissao", 1.0)
+        comissao_base = (total_vendas * percentual_comissao) / 100
+        
+        # Get vendor's goal
+        goal_doc = await db.goals.find_one(
+            {"vendedor": vendedor_nome, "mes": mes, "ano": ano}, 
+            {"_id": 0}
+        )
+        
+        if goal_doc:
+            meta_vendas = goal_doc.get("meta_vendas", 0)
+        else:
+            # Try to get from user profile
+            user_doc = await db.users.find_one({"full_name": vendedor_nome}, {"_id": 0})
+            meta_vendas = user_doc.get("meta_mensal", 0) if user_doc else 0
+        
+        # Calculate bonus based on goal achievement
+        percentual_atingido = (total_vendas / meta_vendas * 100) if meta_vendas > 0 else 0
+        
+        # Find highest bonus tier achieved (non-cumulative)
+        bonus_valor = 0
+        bonus_tiers = comissao_config.get("bonus_tiers", [])
+        sorted_tiers = sorted(bonus_tiers, key=lambda x: x["percentual_meta"], reverse=True)
+        
+        for tier in sorted_tiers:
+            if percentual_atingido >= tier["percentual_meta"]:
+                bonus_valor = tier["valor_bonus"]
+                break
+        
+        # Get vales for this vendor in this period
+        vales = await db.vales.find(
+            {"vendedora_id": vendedora_id, "mes": mes, "ano": ano}, 
+            {"_id": 0}
+        ).to_list(100)
+        
+        total_vales = sum(v.get("valor", 0) for v in vales)
+        
+        # Calculate total to pay
+        total_a_pagar = comissao_base + bonus_valor - total_vales
+        
+        result.append({
+            "vendedor": vendedor_nome,
+            "vendedora_id": vendedora_id,
+            "total_vendas": total_vendas,
+            "num_vendas": num_vendas,
+            "total_pecas": total_pecas,
+            "meta_vendas": meta_vendas,
+            "percentual_meta": percentual_atingido,
+            "comissao_base": comissao_base,
+            "bonus_valor": bonus_valor,
+            "vales": vales,
+            "total_vales": total_vales,
+            "total_a_pagar": total_a_pagar
+        })
+    
+    return {
+        "mes": mes,
+        "ano": ano,
+        "filial_id": filial_id,
+        "vendedores": result,
+        "percentual_comissao": comissao_config.get("percentual_comissao", 1.0)
+    }
+
 # ==================== FECHAMENTO DE CAIXA ROUTES ====================
 
 class FechamentoCaixaBase(BaseModel):
