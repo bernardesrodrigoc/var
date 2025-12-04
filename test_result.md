@@ -33,15 +33,18 @@ Sistema de gestão de varejo com multi-filiais. Precisa corrigir bug na página 
 
   - task: "Ensure sales reversals (estornadas) are excluded from all reports"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Already implemented in dashboard, sales-by-vendor, my-performance, and fechamento. Need to verify comprehensively"
+        - working: true
+          agent: "testing"
+          comment: "TESTED: Sale reversal (estorno) functionality working correctly. Created sale, reversed it via DELETE /api/sales/{id}/estornar, verified sale marked as estornada=true. Confirmed estornadas are excluded from all reports with filter 'estornada': {'$ne': True} in dashboard, sales-by-vendor, my-performance, and pagamentos-detalhados endpoints."
 
 ## frontend:
   - task: "Fix MyPerformance page NaN bug"
