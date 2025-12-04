@@ -1008,6 +1008,81 @@ async def get_fechamento_hoje(current_user: User = Depends(get_current_active_us
         "filial_id": filial_id
     }
 
+# ==================== CONFIGURAÇÕES COMISSÃO ====================
+
+class BonusTier(BaseModel):
+    percentual_meta: float  # Ex: 80, 90, 100, 110 (% da meta)
+    valor_bonus: float  # Valor do bônus em R$
+
+class ComissionConfig(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    filial_id: str
+    percentual_comissao: float = 1.0  # % padrão de comissão (1%)
+    bonus_tiers: List[BonusTier] = [
+        BonusTier(percentual_meta=80, valor_bonus=100),
+        BonusTier(percentual_meta=90, valor_bonus=150),
+        BonusTier(percentual_meta=100, valor_bonus=200),
+        BonusTier(percentual_meta=110, valor_bonus=300),
+    ]
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by: str = ""
+
+class ComissionConfigUpdate(BaseModel):
+    percentual_comissao: float
+    bonus_tiers: List[BonusTier]
+
+@api_router.get("/comissao-config/{filial_id}")
+async def get_comissao_config(filial_id: str, current_user: User = Depends(get_current_active_user)):
+    config = await db.comissao_config.find_one({"filial_id": filial_id}, {"_id": 0})
+    
+    if not config:
+        # Retornar configuração padrão
+        default_config = ComissionConfig(filial_id=filial_id)
+        return default_config.model_dump()
+    
+    if isinstance(config.get('updated_at'), str):
+        config['updated_at'] = datetime.fromisoformat(config['updated_at'])
+    return config
+
+@api_router.put("/comissao-config/{filial_id}")
+async def update_comissao_config(
+    filial_id: str, 
+    config: ComissionConfigUpdate, 
+    current_user: User = Depends(get_current_active_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem alterar configurações")
+    
+    # Buscar config existente
+    existing = await db.comissao_config.find_one({"filial_id": filial_id})
+    
+    update_data = {
+        "percentual_comissao": config.percentual_comissao,
+        "bonus_tiers": [tier.model_dump() for tier in config.bonus_tiers],
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": current_user.username
+    }
+    
+    if existing:
+        # Atualizar existente
+        await db.comissao_config.update_one(
+            {"filial_id": filial_id},
+            {"$set": update_data}
+        )
+    else:
+        # Criar novo
+        new_config = ComissionConfig(
+            filial_id=filial_id,
+            percentual_comissao=config.percentual_comissao,
+            bonus_tiers=config.bonus_tiers,
+            updated_by=current_user.username
+        )
+        doc = new_config.model_dump()
+        doc['updated_at'] = doc['updated_at'].isoformat()
+        await db.comissao_config.insert_one(doc)
+    
+    return {"message": "Configuração atualizada com sucesso"}
+
 # ==================== VALES ROUTES ====================
 
 class ValeBase(BaseModel):
