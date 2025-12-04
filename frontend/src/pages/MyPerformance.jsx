@@ -67,9 +67,6 @@ export default function MyPerformance() {
 
   const totalGanhos = comissaoBase + bonusAtingido;
 
-  const tierInfo = getTierInfo(performance.tier_atual);
-  const nextTierInfo = getTierInfo(performance.tier_atual + 1);
-
   return (
     <div className="space-y-6" data-testid="performance-page">
       <div>
@@ -78,26 +75,6 @@ export default function MyPerformance() {
           Acompanhe suas metas e comissões - {performance.mes}/{performance.ano}
         </p>
       </div>
-
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className={`${tierInfo.color} w-16 h-16 rounded-full flex items-center justify-center`}>
-                <Award className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{tierInfo.name}</h2>
-                <p className="text-gray-500">Nível {performance.tier_atual} de 4</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">Bônus Acumulado</p>
-              <p className="text-3xl font-bold text-indigo-600">{formatCurrency(performance.bonus_valor)}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
