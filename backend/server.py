@@ -145,6 +145,9 @@ class Sale(SaleBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     data: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     hora: str = Field(default_factory=lambda: datetime.now(timezone.utc).strftime("%H:%M:%S"))
+    estornada: bool = False
+    estornada_em: Optional[str] = None
+    estornada_por: Optional[str] = None
 
 # Payment Plan Models
 class PaymentPlanBase(BaseModel):
