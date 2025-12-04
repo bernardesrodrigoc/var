@@ -73,6 +73,7 @@ function App() {
               <Route path="transferencias" element={<Transferencias />} />
               <Route path="filiais" element={<Filiais />} />
               <Route path="balanco-estoque" element={<BalancoEstoque />} />
+              <Route path="comissao-config" element={<ComissaoConfig />} />
             </Route>
           </Routes>
         </FilialProvider>
