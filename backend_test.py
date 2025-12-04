@@ -88,9 +88,16 @@ class APITester:
                 url=f"{BASE_URL}{endpoint}",
                 headers=headers,
                 data=data,
-                params=params
+                params=params,
+                timeout=15
             )
             return response
+        except requests.exceptions.Timeout:
+            print(f"Request timeout for {method} {endpoint}")
+            return None
+        except requests.exceptions.ConnectionError:
+            print(f"Connection error for {method} {endpoint}")
+            return None
         except Exception as e:
             print(f"Request error: {str(e)}")
             return None
