@@ -18,6 +18,9 @@ export default function Reports() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
   const { selectedFilial } = useFilial();
+  const { toast } = useToast();
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const canEstornar = user.role === 'admin' || user.role === 'gerente';
 
   useEffect(() => {
     if (selectedFilial) {
