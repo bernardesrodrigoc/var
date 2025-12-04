@@ -33,10 +33,10 @@ export default function FechamentoCaixa() {
       const response = await api.get(`/sales?filial_id=${selectedFilial.id}`);
       const salesData = response.data;
       
-      // Filtrar vendas de hoje
+      // Filtrar vendas de hoje (excluindo estornadas)
       const vendasHoje = salesData.filter(sale => {
         const saleDate = new Date(sale.data).toISOString().split('T')[0];
-        return saleDate === hoje;
+        return saleDate === hoje && !sale.estornada;
       });
       
       // Calcular totais por forma de pagamento
