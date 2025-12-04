@@ -91,9 +91,7 @@ Sistema de gestão de varejo com multi-filiais. Precisa corrigir bug na página 
 
 ## test_plan:
   current_focus:
-    - "Create detailed payment report endpoint"
     - "Create Pagamentos (Payment Report) page"
-    - "Ensure sales reversals are excluded from all reports"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
