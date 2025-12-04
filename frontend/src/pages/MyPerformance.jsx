@@ -159,11 +159,11 @@ export default function MyPerformance() {
                 .sort((a, b) => a.percentual_meta - b.percentual_meta)[0];
               
               if (proximaFaixa) {
-                const faltaVender = ((proximaFaixa.percentual_meta / 100) * performance.goal) - performance.total_vendas;
+                const faltaVender = ((proximaFaixa.percentual_meta / 100) * meta) - performance.total_vendas;
                 return (
                   <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                     <p className="text-sm text-gray-700">
-                      🎯 <strong>Falta apenas {formatCurrency(faltaVender)}</strong> para você conquistar mais{' '}
+                      🎯 <strong>Falta apenas {formatCurrency(Math.max(0, faltaVender))}</strong> para você conquistar mais{' '}
                       <strong className="text-green-600">{formatCurrency(proximaFaixa.valor_bonus)}</strong> de bônus!
                     </p>
                   </div>
