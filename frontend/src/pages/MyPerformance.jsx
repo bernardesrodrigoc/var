@@ -76,33 +76,21 @@ export default function MyPerformance() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">% da Meta Base</CardTitle>
-            <Target className="w-5 h-5 text-blue-500" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total de Vendas</CardTitle>
+            <TrendingUp className="w-5 h-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{performance.percentual_atingido.toFixed(1)}%</div>
-            <p className="text-xs text-gray-500 mt-1">{performance.num_vendas} vendas</p>
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(performance.total_vendas)}</div>
+            <p className="text-xs text-gray-500 mt-1">{performance.num_vendas} vendas realizadas</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">% Acima da Meta</CardTitle>
-            <TrendingUp className="w-5 h-5 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {performance.percentual_acima_meta > 0 ? '+' : ''}{performance.percentual_acima_meta.toFixed(1)}%
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Bônus Atual</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Bônus Conquistado</CardTitle>
             <Award className="w-5 h-5 text-purple-500" />
           </CardHeader>
           <CardContent>
@@ -110,25 +98,21 @@ export default function MyPerformance() {
               {formatCurrency(bonusAtingido)}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {percentualAtingido >= comissaoConfig.bonus_tiers[comissaoConfig.bonus_tiers.length - 1]?.percentual_meta
-                ? 'Máximo atingido!'
-                : 'Continue vendendo'}
+              {bonusAtingido > 0 ? 'Parabéns! 🎉' : 'Continue vendendo!'}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Ganhos Totais</CardTitle>
-            <DollarSign className="w-5 h-5 text-yellow-500" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total a Receber</CardTitle>
+            <DollarSign className="w-5 h-5 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
+            <div className="text-2xl font-bold text-green-600">
               {formatCurrency(totalGanhos)}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Comissão ({comissaoConfig.percentual_comissao}%) + Bônus
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Vendas + Bônus</p>
           </CardContent>
         </Card>
       </div>
