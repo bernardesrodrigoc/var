@@ -96,8 +96,7 @@ Sistema de gestão de varejo com multi-filiais. Precisa corrigir bug na página 
   run_ui: true
 
 ## test_plan:
-  current_focus:
-    - "Create Pagamentos (Payment Report) page"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
