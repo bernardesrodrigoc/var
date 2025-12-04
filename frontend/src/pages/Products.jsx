@@ -287,13 +287,23 @@ export default function Products() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Produtos</h1>
-          <p className="text-gray-500 mt-1">Gerencie seu catálogo de produtos</p>
+          <p className="text-gray-500 mt-1">Gerencie seu catálogo de produtos - {selectedFilial?.nome}</p>
         </div>
         {canEdit && (
-          <Button onClick={() => handleOpenDialog()} data-testid="add-product-button">
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar Produto
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={downloadTemplate} variant="outline">
+              <Download className="w-4 h-4 mr-2" />
+              Baixar Template
+            </Button>
+            <Button onClick={() => setImportDialogOpen(true)} variant="outline">
+              <Upload className="w-4 h-4 mr-2" />
+              Importar Excel
+            </Button>
+            <Button onClick={() => handleOpenDialog()} data-testid="add-product-button">
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Produto
+            </Button>
+          </div>
         )}
       </div>
 
