@@ -276,12 +276,28 @@ export default function Reports() {
               <div key={sale.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
-                    <span className="font-medium text-gray-900">{sale.vendedor}</span>
-                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                    <p className="font-medium text-gray-900">{sale.vendedor}</p>
+                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full">
                       {sale.modalidade_pagamento}
                     </span>
+                    {sale.estornada && (
+                      <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1">
+                        <XCircle className="w-3 h-3" />
+                        ESTORNADA
+                      </span>
+                    )}
+                    {sale.is_troca && (
+                      <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+                        Troca
+                      </span>
+                    )}
+                    {sale.online && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                        Online
+                      </span>
+                    )}
                     {sale.encomenda && (
-                      <span className="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-700 rounded-full">
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
                         Encomenda
                       </span>
                     )}
@@ -293,10 +309,25 @@ export default function Reports() {
                     {sale.items.length} {sale.items.length === 1 ? 'item' : 'itens'}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-indigo-600">{formatCurrency(sale.total)}</p>
-                  {sale.parcelas > 1 && (
-                    <p className="text-xs text-gray-500">{sale.parcelas}x {formatCurrency(sale.total / sale.parcelas)}</p>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className={`text-lg font-bold ${sale.estornada ? 'text-red-600 line-through' : 'text-indigo-600'}`}>
+                      {formatCurrency(sale.total)}
+                    </p>
+                    {sale.parcelas > 1 && (
+                      <p className="text-xs text-gray-500">{sale.parcelas}x {formatCurrency(sale.total / sale.parcelas)}</p>
+                    )}
+                  </div>
+                  {canEstornar && !sale.estornada && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEstornar(sale.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      title="Estornar venda"
+                    >
+                      <AlertTriangle className="w-4 h-4" />
+                    </Button>
                   )}
                 </div>
               </div>
