@@ -245,8 +245,8 @@ export default function SalesAdvanced() {
       return;
     }
 
-    // Validar seleção de vendedor (admin/gerente devem selecionar)
-    if ((user.role === 'admin' || user.role === 'gerente') && !selectedVendedor) {
+    // Validar seleção de vendedor (obrigatório para todos)
+    if (!selectedVendedor) {
       toast({
         variant: 'destructive',
         title: 'Vendedor não selecionado',
