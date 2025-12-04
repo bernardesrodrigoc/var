@@ -932,7 +932,8 @@ async def get_my_performance(current_user: User = Depends(get_current_active_use
     pipeline = [
         {"$match": {
             "vendedor": current_user.full_name,
-            "data": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+            "data": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()},
+            "estornada": {"$ne": True}  # Excluir vendas estornadas
         }},
         {"$group": {
             "_id": None,
