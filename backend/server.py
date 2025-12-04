@@ -597,7 +597,8 @@ async def estornar_venda(sale_id: str, current_user: User = Depends(get_current_
     if sale.get('estornada', False):
         raise HTTPException(status_code=400, detail="Esta venda já foi estornada")
     
-    # Devolver produtos ao estoque
+    # 1. Devolver produtos ao estoque
+    produtos_devolvidos = []
     for item in sale['items']:
         product = await db.products.find_one({"id": item['product_id']}, {"_id": 0})
         if product:
@@ -606,8 +607,13 @@ async def estornar_venda(sale_id: str, current_user: User = Depends(get_current_
                 {"id": item['product_id']},
                 {"$set": {"quantidade": new_quantity, "updated_at": datetime.now(timezone.utc).isoformat()}}
             )
+            produtos_devolvidos.append({
+                "produto": product['descricao'],
+                "quantidade": item['quantidade']
+            })
     
-    # Reverter crédito/débito do cliente se aplicável
+    # 2. Reverter crédito/débito do cliente se aplicável
+    cliente_atualizado = False
     if sale.get('customer_id'):
         customer = await db.customers.find_one({"id": sale['customer_id']}, {"_id": 0})
         if customer:
@@ -618,18 +624,51 @@ async def estornar_venda(sale_id: str, current_user: User = Depends(get_current_
                     {"id": sale['customer_id']},
                     {"$set": {"saldo_devedor": new_saldo}}
                 )
+                cliente_atualizado = True
+            # Se usou crédito da loja, devolver o crédito
+            elif sale.get('credito_usado', 0) > 0:
+                new_credito = customer.get('credito_loja', 0) + sale['credito_usado']
+                await db.customers.update_one(
+                    {"id": sale['customer_id']},
+                    {"$set": {"credito_loja": new_credito}}
+                )
+                cliente_atualizado = True
     
-    # Marcar venda como estornada
+    # 3. Marcar venda como estornada (mantém no histórico mas marcada)
     await db.sales.update_one(
         {"id": sale_id},
         {"$set": {
             "estornada": True,
             "estornada_em": datetime.now(timezone.utc).isoformat(),
-            "estornada_por": current_user.username
+            "estornada_por": current_user.username,
+            "motivo_estorno": "Cancelamento de venda"
         }}
     )
     
-    return {"message": "Venda estornada com sucesso", "produtos_devolvidos": len(sale['items'])}
+    # 4. Registrar log de auditoria do estorno
+    estorno_log = {
+        "id": str(uuid.uuid4()),
+        "sale_id": sale_id,
+        "vendedor": sale.get('vendedor', 'Desconhecido'),
+        "vendedor_id": sale.get('vendedor_id'),
+        "valor_total": sale['total'],
+        "filial_id": sale.get('filial_id'),
+        "estornada_por": current_user.username,
+        "estornada_em": datetime.now(timezone.utc).isoformat(),
+        "produtos_devolvidos": produtos_devolvidos,
+        "cliente_id": sale.get('customer_id'),
+        "cliente_atualizado": cliente_atualizado
+    }
+    await db.estornos_log.insert_one(estorno_log)
+    
+    return {
+        "message": "Venda estornada com sucesso",
+        "produtos_devolvidos": len(sale['items']),
+        "valor_estornado": sale['total'],
+        "vendedor": sale.get('vendedor', 'Desconhecido'),
+        "cliente_atualizado": cliente_atualizado,
+        "detalhes": produtos_devolvidos
+    }
 
 @api_router.get("/sales", response_model=List[Sale])
 async def get_sales(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
