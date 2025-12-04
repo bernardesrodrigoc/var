@@ -75,6 +75,7 @@ function App() {
               <Route path="filiais" element={<Filiais />} />
               <Route path="balanco-estoque" element={<BalancoEstoque />} />
               <Route path="comissao-config" element={<ComissaoConfig />} />
+              <Route path="pagamentos" element={<Pagamentos />} />
             </Route>
           </Routes>
         </FilialProvider>
