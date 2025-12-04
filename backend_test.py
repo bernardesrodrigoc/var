@@ -179,11 +179,42 @@ class APITester:
         """Test sale creation, reversal, and exclusion from reports"""
         print("\n=== Testing Sale Reversal (Estorno) Exclusion ===")
         
-        # First, create a test sale
+        # First, create a test product
+        product_id = str(uuid.uuid4())
+        product_data = {
+            "codigo": "TEST001",
+            "descricao": "Test Product",
+            "quantidade": 10,
+            "preco_custo": 50.0,
+            "preco_venda": 100.0,
+            "categoria": "Test",
+            "filial_id": "test_filial"
+        }
+        
+        response = self.make_request(
+            "POST",
+            "/products",
+            token=self.admin_token,
+            data=product_data
+        )
+        
+        if not (response and response.status_code == 200):
+            self.log_result(
+                "Product Creation for Sale Test",
+                False,
+                f"Failed to create test product: {response.status_code if response else 'No response'}"
+            )
+            return
+        
+        product = response.json()
+        product_id = product.get("id")
+        self.created_resources.append(("product", product_id))
+        
+        # Now create a test sale
         sale_data = {
             "items": [
                 {
-                    "product_id": str(uuid.uuid4()),
+                    "product_id": product_id,
                     "codigo": "TEST001",
                     "descricao": "Test Product",
                     "quantidade": 1,
