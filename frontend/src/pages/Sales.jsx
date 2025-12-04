@@ -48,13 +48,15 @@ export default function SalesAdvanced() {
     if (selectedFilial) {
       loadCustomers();
       loadVendedores();
-      
-      // Se o usuário é vendedora, selecionar automaticamente
-      if (user.role === 'vendedora') {
-        setSelectedVendedor(user.id || user.username);
-      }
     }
   }, [selectedFilial]);
+
+  // Selecionar vendedor automaticamente quando a lista de vendedores for carregada
+  useEffect(() => {
+    if (vendedores.length > 0 && user.role === 'vendedora' && !selectedVendedor) {
+      setSelectedVendedor(user.id || user.username);
+    }
+  }, [vendedores]);
 
   useEffect(() => {
     if (selectedCustomer !== 'none') {
