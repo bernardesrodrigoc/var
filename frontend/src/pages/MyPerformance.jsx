@@ -203,7 +203,7 @@ export default function MyPerformance() {
               .sort((a, b) => a.percentual_meta - b.percentual_meta)
               .map((tier, index) => {
                 const valorMeta = (tier.percentual_meta / 100) * meta;
-                const isAtingida = performance.total_vendas >= valorMeta;
+                const isAtingida = totalVendas >= valorMeta;
                 const isAtual = bonusAtingido === tier.valor_bonus && isAtingida;
                 
                 return (
