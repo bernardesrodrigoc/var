@@ -331,7 +331,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleEstornar(sale.id)}
+                      onClick={() => handleEstornar(sale.id, sale)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       title="Estornar venda"
                     >
