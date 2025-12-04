@@ -2,22 +2,32 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { reportsAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
+import { useFilial } from '@/context/FilialContext';
 import { Target, TrendingUp, Award, DollarSign } from 'lucide-react';
+import api from '@/lib/api';
 
 export default function MyPerformance() {
   const [performance, setPerformance] = useState(null);
+  const [comissaoConfig, setComissaoConfig] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { selectedFilial } = useFilial();
 
   useEffect(() => {
-    loadPerformance();
-  }, []);
+    if (selectedFilial) {
+      loadData();
+    }
+  }, [selectedFilial]);
 
-  const loadPerformance = async () => {
+  const loadData = async () => {
     try {
-      const data = await reportsAPI.getMyPerformance();
-      setPerformance(data);
+      const [perfData, configData] = await Promise.all([
+        reportsAPI.getMyPerformance(),
+        api.get(`/comissao-config/${selectedFilial.id}`).then(r => r.data)
+      ]);
+      setPerformance(perfData);
+      setComissaoConfig(configData);
     } catch (error) {
-      console.error('Erro ao carregar performance:', error);
+      console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
