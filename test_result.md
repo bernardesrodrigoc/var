@@ -22,11 +22,14 @@ Sistema de gestão de varejo com multi-filiais. Precisa corrigir bug na página 
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: true
           agent: "main"
           comment: "New endpoint /api/reports/pagamentos-detalhados created. Returns sales, commissions, bonuses, and vales for each vendor"
+        - working: true
+          agent: "testing"
+          comment: "TESTED: Payment report endpoint working correctly. Admin access returns proper structure with vendedores[], percentual_comissao. Salesperson access correctly denied with 403. All required fields present: mes, ano, vendedores, percentual_comissao. Each vendor has: vendedor, total_vendas, comissao_base, bonus_valor, vales, total_a_pagar."
 
   - task: "Ensure sales reversals (estornadas) are excluded from all reports"
     implemented: true
