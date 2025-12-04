@@ -46,6 +46,18 @@ Sistema de gestão de varejo com multi-filiais. Precisa corrigir bug na página 
           agent: "testing"
           comment: "TESTED: Sale reversal (estorno) functionality working correctly. Created sale, reversed it via DELETE /api/sales/{id}/estornar, verified sale marked as estornada=true. Confirmed estornadas are excluded from all reports with filter 'estornada': {'$ne': True} in dashboard, sales-by-vendor, my-performance, and pagamentos-detalhados endpoints."
 
+  - task: "Vale (Cash Advance) Management CRUD Operations"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "TESTED: Vale management working correctly. ✅ POST /api/vales (admin-only) ✅ GET /api/vales/vendedora/{id}?mes=X&ano=Y ✅ PUT /api/vales/{id} (admin-only) ✅ DELETE /api/vales/{id} (admin-only). Proper access control: salesperson requests correctly denied with 403. All CRUD operations functional."
+
 ## frontend:
   - task: "Fix MyPerformance page NaN bug"
     implemented: true
