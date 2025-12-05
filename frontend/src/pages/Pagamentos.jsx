@@ -11,8 +11,15 @@ import api from '@/lib/api';
 
 export default function Pagamentos() {
   const [pagamentos, setPagamentos] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  
+  // Date range - default to current month
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  
+  const [dataInicio, setDataInicio] = useState(firstDay.toISOString().split('T')[0]);
+  const [dataFim, setDataFim] = useState(lastDay.toISOString().split('T')[0]);
+  
   const [loading, setLoading] = useState(true);
   const [editingVale, setEditingVale] = useState(null);
   const [valesDeducao, setValesDeducao] = useState({});
@@ -23,7 +30,7 @@ export default function Pagamentos() {
     if (selectedFilial) {
       loadPagamentos();
     }
-  }, [selectedMonth, selectedYear, selectedFilial]);
+  }, [dataInicio, dataFim, selectedFilial]);
 
   const loadPagamentos = async () => {
     if (!selectedFilial) return;
@@ -32,8 +39,8 @@ export default function Pagamentos() {
     try {
       const response = await api.get(`/reports/pagamentos-detalhados`, {
         params: {
-          mes: selectedMonth,
-          ano: selectedYear,
+          data_inicio: dataInicio,
+          data_fim: dataFim,
           filial_id: selectedFilial.id
         }
       });
