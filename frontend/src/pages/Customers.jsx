@@ -151,6 +151,83 @@ export default function Customers() {
     }
   };
 
+
+  const handleOpenPagamento = (customer) => {
+    setSelectedCustomerPagamento(customer);
+    setPagamentoData({
+      valor: '',
+      forma_pagamento: 'Dinheiro',
+      observacoes: ''
+    });
+    setPagamentoDialogOpen(true);
+  };
+
+  const handlePagarSaldo = async () => {
+    if (!selectedCustomerPagamento) return;
+    
+    const valor = parseFloat(pagamentoData.valor);
+    if (isNaN(valor) || valor <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Informe um valor válido',
+      });
+      return;
+    }
+
+    if (valor > selectedCustomerPagamento.saldo_devedor) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Valor maior que o saldo devedor',
+      });
+      return;
+    }
+
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      await api.post(`/customers/${selectedCustomerPagamento.id}/pagar-saldo`, {
+        customer_id: selectedCustomerPagamento.id,
+        customer_nome: selectedCustomerPagamento.nome,
+        valor: valor,
+        forma_pagamento: pagamentoData.forma_pagamento,
+        vendedora_id: user.id,
+        vendedora_nome: user.full_name,
+        observacoes: pagamentoData.observacoes
+      });
+
+      toast({
+        title: 'Pagamento registrado!',
+        description: `${formatCurrency(valor)} recebido com sucesso`,
+      });
+      
+      setPagamentoDialogOpen(false);
+      loadCustomers();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: error.response?.data?.detail || 'Não foi possível registrar o pagamento',
+      });
+    }
+  };
+
+  const handleViewPagamentos = async (customer) => {
+    try {
+      const response = await api.get(`/customers/${customer.id}/historico-pagamentos`);
+      setCustomerHistory(response.data);
+      setEditingCustomer(customer);
+      setHistoryDialogOpen(true);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível carregar o histórico',
+      });
+    }
+  };
+
+
   if (loading) {
     return <div className="flex justify-center items-center h-96">Carregando...</div>;
   }
