@@ -527,6 +527,90 @@ async def delete_customer(customer_id: str, current_user: User = Depends(get_cur
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     return {"message": "Cliente excluído com sucesso"}
 
+
+# ==================== PAGAMENTO SALDO DEVEDOR ====================
+
+class PagamentoSaldoBase(BaseModel):
+    customer_id: str
+    customer_nome: str
+    valor: float
+    forma_pagamento: str  # Dinheiro, Pix, Cartao, etc
+    vendedora_id: str
+    vendedora_nome: str
+    observacoes: Optional[str] = None
+
+class PagamentoSaldo(PagamentoSaldoBase):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    data: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    filial_id: str
+
+@api_router.post("/customers/{customer_id}/pagar-saldo")
+async def pagar_saldo_devedor(
+    customer_id: str, 
+    pagamento: PagamentoSaldoBase, 
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Registra um pagamento parcial ou total do saldo devedor de um cliente
+    Qualquer vendedora ou admin pode receber pagamentos
+    """
+    # Buscar cliente
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    
+    # Validar valor
+    if pagamento.valor <= 0:
+        raise HTTPException(status_code=400, detail="Valor deve ser maior que zero")
+    
+    if pagamento.valor > customer.get('saldo_devedor', 0):
+        raise HTTPException(status_code=400, detail="Valor maior que o saldo devedor")
+    
+    # Criar registro de pagamento
+    pagamento_obj = PagamentoSaldo(
+        **pagamento.model_dump(),
+        filial_id=customer.get('filial_id', '')
+    )
+    doc = pagamento_obj.model_dump()
+    doc['data'] = doc['data'].isoformat()
+    
+    await db.pagamentos_saldo.insert_one(doc)
+    
+    # Atualizar saldo devedor do cliente
+    novo_saldo = customer.get('saldo_devedor', 0) - pagamento.valor
+    await db.customers.update_one(
+        {"id": customer_id},
+        {"$set": {"saldo_devedor": max(0, novo_saldo)}}
+    )
+    
+    return {
+        "message": "Pagamento registrado com sucesso",
+        "saldo_anterior": customer.get('saldo_devedor', 0),
+        "valor_pago": pagamento.valor,
+        "novo_saldo": max(0, novo_saldo)
+    }
+
+@api_router.get("/customers/{customer_id}/historico-pagamentos")
+async def get_historico_pagamentos(
+    customer_id: str, 
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Retorna histórico de pagamentos de saldo devedor de um cliente
+    """
+    pagamentos = await db.pagamentos_saldo.find(
+        {"customer_id": customer_id}, 
+        {"_id": 0}
+    ).sort("data", -1).to_list(100)
+    
+    # Converter datas
+    for p in pagamentos:
+        if isinstance(p.get('data'), str):
+            p['data'] = datetime.fromisoformat(p['data'])
+    
+    return pagamentos
+
+
 # ==================== SALES ROUTES ====================
 
 @api_router.post("/sales", response_model=Sale)
