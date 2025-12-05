@@ -1193,10 +1193,28 @@ async def get_pagamentos_detalhados(
                 break
         
         # Get vales for this vendor in this period
-        vales = await db.vales.find(
-            {"vendedora_id": vendedora_id, "mes": mes, "ano": ano}, 
-            {"_id": 0}
-        ).to_list(100)
+        # Extract month/year from date range for vale filtering
+        try:
+            start_dt = datetime.fromisoformat(data_inicio.replace('Z', '+00:00'))
+            mes_inicio = start_dt.month
+            ano_inicio = start_dt.year
+            end_dt = datetime.fromisoformat(data_fim.replace('Z', '+00:00'))
+            mes_fim = end_dt.month
+            ano_fim = end_dt.year
+        except:
+            mes_inicio = mes_fim = datetime.now().month
+            ano_inicio = ano_fim = datetime.now().year
+        
+        # Filter vales by date range (same month/year range)
+        vale_query = {"vendedora_id": vendedora_id}
+        if mes_inicio == mes_fim and ano_inicio == ano_fim:
+            vale_query["mes"] = mes_inicio
+            vale_query["ano"] = ano_inicio
+        else:
+            # Multiple months - get all vales in the year range
+            vale_query["ano"] = {"$gte": ano_inicio, "$lte": ano_fim}
+        
+        vales = await db.vales.find(vale_query, {"_id": 0}).to_list(100)
         
         total_vales = sum(v.get("valor", 0) for v in vales)
         
