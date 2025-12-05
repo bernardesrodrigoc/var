@@ -1100,8 +1100,8 @@ async def get_my_performance(current_user: User = Depends(get_current_active_use
 
 @api_router.get("/reports/pagamentos-detalhados")
 async def get_pagamentos_detalhados(
-    mes: int, 
-    ano: int, 
+    data_inicio: str, 
+    data_fim: str, 
     filial_id: Optional[str] = None, 
     current_user: User = Depends(get_current_active_user)
 ):
@@ -1118,14 +1118,8 @@ async def get_pagamentos_detalhados(
     if filial_id:
         match_stage["filial_id"] = filial_id
     
-    # Date range for the selected month
-    start_date = datetime(ano, mes, 1, tzinfo=timezone.utc)
-    if mes == 12:
-        end_date = datetime(ano + 1, 1, 1, tzinfo=timezone.utc)
-    else:
-        end_date = datetime(ano, mes + 1, 1, tzinfo=timezone.utc)
-    
-    match_stage["data"] = {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()}
+    # Date range filter
+    match_stage["data"] = {"$gte": data_inicio, "$lte": data_fim}
     
     # Aggregate sales by vendedor
     pipeline = [
