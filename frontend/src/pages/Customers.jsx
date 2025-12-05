@@ -357,53 +357,109 @@ export default function Customers() {
         </CardContent>
       </Card>
 
-      {/* History Dialog */}
+      {/* History Dialog - Histórico de Pagamentos */}
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Histórico de Compras - {editingCustomer?.nome}
+              Histórico de Pagamentos - {editingCustomer?.nome}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             {customerHistory.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                Nenhuma compra registrada
+                Nenhum pagamento registrado
               </div>
             ) : (
-              customerHistory.map((sale) => (
-                <div key={sale.id} className="p-4 border rounded-lg space-y-2">
+              customerHistory.map((pagamento) => (
+                <div key={pagamento.id} className="p-4 border rounded-lg">
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-gray-900">
-                        {new Date(sale.data).toLocaleDateString('pt-BR')} às {sale.hora}
+                        {new Date(pagamento.data).toLocaleDateString('pt-BR')} às {new Date(pagamento.data).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}
                       </p>
-                      <p className="text-sm text-gray-500">Vendedor: {sale.vendedor}</p>
-                      <p className="text-sm text-gray-500">
-                        Pagamento: {sale.modalidade_pagamento}
-                        {sale.parcelas > 1 && ` - ${sale.parcelas}x`}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-indigo-600">{formatCurrency(sale.total)}</p>
-                      {sale.desconto > 0 && (
-                        <p className="text-xs text-green-600">Desconto: {formatCurrency(sale.desconto)}</p>
+                      <p className="text-sm text-gray-500">Recebido por: {pagamento.vendedora_nome}</p>
+                      <p className="text-sm text-gray-500">Forma: {pagamento.forma_pagamento}</p>
+                      {pagamento.observacoes && (
+                        <p className="text-sm text-gray-600 mt-1 italic">{pagamento.observacoes}</p>
                       )}
                     </div>
-                  </div>
-                  <div className="border-t pt-2">
-                    <p className="text-sm font-medium text-gray-700 mb-1">Itens:</p>
-                    {sale.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between text-sm text-gray-600">
-                        <span>{item.quantidade}x {item.descricao}</span>
-                        <span>{formatCurrency(item.subtotal)}</span>
-                      </div>
-                    ))}
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-green-600">{formatCurrency(pagamento.valor)}</p>
+                    </div>
                   </div>
                 </div>
               ))
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pagamento Dialog */}
+      <Dialog open={pagamentoDialogOpen} onOpenChange={setPagamentoDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Receber Pagamento</DialogTitle>
+          </DialogHeader>
+          {selectedCustomerPagamento && (
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">Cliente:</p>
+                <p className="font-semibold text-lg">{selectedCustomerPagamento.nome}</p>
+                <p className="text-sm text-red-600 mt-2">
+                  Saldo Devedor: <span className="font-bold">{formatCurrency(selectedCustomerPagamento.saldo_devedor)}</span>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="valor_pagamento">Valor Recebido *</Label>
+                <Input
+                  id="valor_pagamento"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={selectedCustomerPagamento.saldo_devedor}
+                  value={pagamentoData.valor}
+                  onChange={(e) => setPagamentoData({ ...pagamentoData, valor: e.target.value })}
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="forma_pagamento">Forma de Pagamento *</Label>
+                <select
+                  id="forma_pagamento"
+                  value={pagamentoData.forma_pagamento}
+                  onChange={(e) => setPagamentoData({ ...pagamentoData, forma_pagamento: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Pix">Pix</option>
+                  <option value="Cartao">Cartão</option>
+                  <option value="Transferencia">Transferência</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="observacoes_pagamento">Observações</Label>
+                <Input
+                  id="observacoes_pagamento"
+                  value={pagamentoData.observacoes}
+                  onChange={(e) => setPagamentoData({ ...pagamentoData, observacoes: e.target.value })}
+                  placeholder="Observações adicionais (opcional)"
+                />
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setPagamentoDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="button" onClick={handlePagarSaldo}>
+                  Confirmar Pagamento
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
