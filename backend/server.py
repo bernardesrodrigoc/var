@@ -1759,6 +1759,11 @@ async def root():
 # Include router
 app.include_router(api_router)
 
+# Startup event - Seed database
+@app.on_event("startup")
+async def startup_event():
+    await seed_database(db)
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
