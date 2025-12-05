@@ -1,30 +1,35 @@
+# Estágio de Build
 FROM node:18-alpine as build
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json yarn.lock ./
+# Copia package.json e lock files (se existirem)
+COPY package*.json yarn.lock* ./
 
-# Install dependencies
-RUN yarn install --frozen-lockfile
+# Instala dependências (tenta yarn, se falhar usa npm)
+RUN if [ -f yarn.lock ]; then yarn install; else npm install; fi
 
-# Copy application code
+# Copia o restante do código
 COPY . .
 
-# Build the application
-RUN yarn build
+# --- CORREÇÃO IMPORTANTE AQUI ---
+# Recebe a variável do Railway durante o build
+ARG REACT_APP_BACKEND_URL
+ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
+# -------------------------------
 
-# Production stage
+# Build da aplicação
+RUN if [ -f yarn.lock ]; then yarn build; else npm run build; fi
+
+# Estágio de Produção (Nginx)
 FROM nginx:alpine
 
-# Copy built files
+# Copia os arquivos buildados
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Copy nginx configuration
+# Copia configuração do nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port
 EXPOSE 80
 
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]
