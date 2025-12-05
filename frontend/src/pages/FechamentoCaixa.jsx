@@ -184,6 +184,20 @@ export default function FechamentoCaixa() {
               </div>
             </div>
 
+            {resumo?.num_pagamentos > 0 && (
+              <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg">
+                <div>
+                  <p className="text-sm text-gray-600">Recebimentos de Clientes</p>
+                  <p className="text-sm text-gray-500">{resumo.num_pagamentos} recebimento(s)</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(resumo.total_pagamentos)}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {resumo?.total_misto > 0 && (
               <div className="flex justify-between items-center p-4 bg-yellow-50 rounded-lg">
                 <p className="text-sm text-gray-600">Pagamentos Mistos</p>
