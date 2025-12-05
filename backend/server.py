@@ -485,12 +485,18 @@ async def create_customer(customer: CustomerCreate, current_user: User = Depends
     return customer_obj
 
 @api_router.get("/customers", response_model=List[Customer])
-async def get_customers(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
+async def get_customers(
+    filial_id: Optional[str] = None, 
+    skip: int = 0, 
+    limit: int = 100, 
+    current_user: User = Depends(get_current_active_user)
+):
     query = {}
     if filial_id:
         query["filial_id"] = filial_id
     
-    customers = await db.customers.find(query, {"_id": 0}).to_list(1000)
+    # Add pagination
+    customers = await db.customers.find(query, {"_id": 0}).skip(skip).limit(min(limit, 500)).to_list(limit)
     for c in customers:
         if isinstance(c.get('created_at'), str):
             c['created_at'] = datetime.fromisoformat(c['created_at'])
