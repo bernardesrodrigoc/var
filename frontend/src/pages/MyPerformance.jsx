@@ -110,7 +110,7 @@ export default function MyPerformance() {
         </Card>
       </div>
 
-      {/* Progresso por Níveis de Bonificação */}
+{/* Progresso por Níveis de Bonificação */}
       <Card>
         <CardHeader>
           <CardTitle>Suas Conquistas e Bônus</CardTitle>
@@ -119,70 +119,82 @@ export default function MyPerformance() {
         <CardContent>
           <div className="space-y-6">
             
-            {/* Loop para gerar uma barra por nível de bônus */}
-            {comissaoConfig.bonus_tiers
-              .sort((a, b) => a.percentual_meta - b.percentual_meta) // Garante ordem crescente
-              .map((tier, index) => {
-                
-                // Matemática: Quanto % deste nível específico já foi concluído?
-                // Ex: Se o nível pede 20% e eu tenho 10%, completei 50% deste nível.
-                let progressoNesteNivel = (percentualAtingido / tier.percentual_meta) * 100;
-                
-                // Trava em 100% se já passou
-                progressoNesteNivel = Math.min(progressoNesteNivel, 100);
-                
-                const isConquistado = progressoNesteNivel >= 100;
+            {/* TRAVA DE SEGURANÇA: Só renderiza se existir configuração */}
+            {!comissaoConfig || !comissaoConfig.bonus_tiers ? (
+              <div className="text-center py-4 text-gray-500">
+                <p>Carregando dados das metas...</p>
+              </div>
+            ) : (
+              // Se os dados existem, renderiza o loop
+              comissaoConfig.bonus_tiers
+                .sort((a, b) => a.percentual_meta - b.percentual_meta)
+                .map((tier, index) => {
+                  
+                  // Proteção contra divisão por zero ou valores nulos
+                  const metaDoNivel = tier.percentual_meta || 100;
+                  const atual = percentualAtingido || 0;
 
-                return (
-                  <div key={index} className="relative">
-                    {/* Cabeçalho da Barra Individual */}
-                    <div className="flex justify-between items-end mb-2">
-                      <div>
-                        <span className="text-sm font-bold text-gray-800 block">
-                          Nível {index + 1} 
-                          {isConquistado && <span className="ml-2 text-green-600 text-xs">✅ Conquistado!</span>}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          Prêmio: <span className="font-semibold text-green-600">{formatCurrency(tier.valor_bonus)}</span>
+                  // Matemática do progresso
+                  let progressoNesteNivel = (atual / metaDoNivel) * 100;
+                  progressoNesteNivel = Math.min(Math.max(progressoNesteNivel, 0), 100);
+                  
+                  const isConquistado = progressoNesteNivel >= 100;
+
+                  return (
+                    <div key={index} className="relative">
+                      {/* Cabeçalho da Barra Individual */}
+                      <div className="flex justify-between items-end mb-2">
+                        <div>
+                          <span className="text-sm font-bold text-gray-800 block">
+                            Nível {index + 1} 
+                            {isConquistado && <span className="ml-2 text-green-600 text-xs">✅ Conquistado!</span>}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Prêmio: <span className="font-semibold text-green-600">
+                              {/* Garante que formatCurrency existe antes de chamar */}
+                              {typeof formatCurrency === 'function' ? formatCurrency(tier.valor_bonus) : `R$ ${tier.valor_bonus}`}
+                            </span>
+                          </span>
+                        </div>
+                        <span className="text-xs font-medium text-gray-600">
+                          {Math.floor(progressoNesteNivel)}% concluído
                         </span>
                       </div>
-                      <span className="text-xs font-medium text-gray-600">
-                        {Math.floor(progressoNesteNivel)}% concluído
-                      </span>
-                    </div>
 
-                    {/* Barra de Progresso */}
-                    <div className="h-4 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
-                      <div
-                        className={`h-full transition-all duration-700 ${
-                          isConquistado 
-                            ? 'bg-green-500' // Fica verde quando completa
-                            : 'bg-indigo-500' // Fica azul/roxo enquanto busca
-                        }`}
-                        style={{ width: `${progressoNesteNivel}%` }}
-                      ></div>
+                      {/* Barra de Progresso */}
+                      <div className="h-4 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+                        <div
+                          className={`h-full transition-all duration-700 ${
+                            isConquistado 
+                              ? 'bg-green-500' 
+                              : 'bg-indigo-500'
+                          }`}
+                          style={{ width: `${progressoNesteNivel}%` }}
+                        ></div>
+                      </div>
+                      
+                      {!isConquistado && (
+                        <p className="text-[10px] text-gray-400 mt-1 text-right">
+                          Meta: atingir {tier.percentual_meta}% da meta global
+                        </p>
+                      )}
                     </div>
-                    
-                    {/* Dica de quanto falta (só se não completou) */}
-                    {!isConquistado && (
-                      <p className="text-[10px] text-gray-400 mt-1 text-right">
-                        Meta do nível: atingir {tier.percentual_meta}% da meta global
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })
+            )}
 
             {/* Barra Final: Meta Global (100%) */}
-            <div className="pt-4 border-t border-gray-100">
+            <div className="pt-4 border-t border-gray-100 mt-4">
               <div className="flex justify-between items-end mb-2">
                 <span className="text-sm font-bold text-gray-900">Meta Final (100%)</span>
-                <span className="text-xs font-medium text-gray-600">{percentualAtingido.toFixed(1)}% atingido</span>
+                <span className="text-xs font-medium text-gray-600">
+                  {(percentualAtingido || 0).toFixed(1)}% atingido
+                </span>
               </div>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gray-800 transition-all duration-500"
-                  style={{ width: `${Math.min(percentualAtingido, 100)}%` }}
+                  style={{ width: `${Math.min((percentualAtingido || 0), 100)}%` }}
                 ></div>
               </div>
             </div>
