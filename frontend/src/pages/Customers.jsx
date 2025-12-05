@@ -19,8 +19,15 @@ export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [pagamentoDialogOpen, setPagamentoDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [customerHistory, setCustomerHistory] = useState([]);
+  const [selectedCustomerPagamento, setSelectedCustomerPagamento] = useState(null);
+  const [pagamentoData, setPagamentoData] = useState({
+    valor: '',
+    forma_pagamento: 'Dinheiro',
+    observacoes: ''
+  });
   const [formData, setFormData] = useState({
     nome: '',
     telefone: '',
