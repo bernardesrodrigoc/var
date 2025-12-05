@@ -29,46 +29,30 @@ export default function FechamentoCaixa() {
     if (!selectedFilial) return;
     
     try {
-      // Carregar vendas do dia da filial atual
-      const hoje = new Date().toISOString().split('T')[0];
-      const response = await api.get(`/sales?filial_id=${selectedFilial.id}`);
-      const salesData = response.data;
+      // Usar endpoint de fechamento que já inclui vendas + pagamentos
+      const fechamentoResponse = await api.get('/fechamento-caixa/hoje');
+      const fechamento = fechamentoResponse.data;
       
-      // Filtrar vendas de hoje (excluindo estornadas)
-      const vendasHoje = salesData.filter(sale => {
+      setResumo({
+        total_dinheiro: fechamento.total_dinheiro,
+        total_pix: fechamento.total_pix,
+        total_cartao: fechamento.total_cartao,
+        total_credito: fechamento.total_credito,
+        total_geral: fechamento.total_geral,
+        num_vendas: fechamento.num_vendas,
+        num_pagamentos: fechamento.num_pagamentos || 0,
+        total_pagamentos: fechamento.total_pagamentos || 0,
+        pagamentos: fechamento.pagamentos || []
+      });
+      
+      // Carregar vendas detalhadas separadamente
+      const hoje = new Date().toISOString().split('T')[0];
+      const salesResponse = await api.get(`/sales?filial_id=${selectedFilial.id}`);
+      const vendasHoje = salesResponse.data.filter(sale => {
         const saleDate = new Date(sale.data).toISOString().split('T')[0];
         return saleDate === hoje && !sale.estornada;
       });
       
-      // Calcular totais por forma de pagamento
-      const totais = {
-        total_dinheiro: 0,
-        total_pix: 0,
-        total_cartao: 0,
-        total_credito: 0,
-        total_geral: 0,
-        num_vendas: vendasHoje.length
-      };
-      
-      vendasHoje.forEach(sale => {
-        totais.total_geral += sale.total;
-        
-        if (sale.modalidade_pagamento === 'Misto') {
-          sale.pagamentos.forEach(pag => {
-            if (pag.modalidade === 'Dinheiro') totais.total_dinheiro += pag.valor;
-            else if (pag.modalidade === 'Pix') totais.total_pix += pag.valor;
-            else if (pag.modalidade === 'Cartao') totais.total_cartao += pag.valor;
-            else if (pag.modalidade === 'Credito') totais.total_credito += pag.valor;
-          });
-        } else {
-          if (sale.modalidade_pagamento === 'Dinheiro') totais.total_dinheiro += sale.total;
-          else if (sale.modalidade_pagamento === 'Pix') totais.total_pix += sale.total;
-          else if (sale.modalidade_pagamento === 'Cartao') totais.total_cartao += sale.total;
-          else if (sale.modalidade_pagamento === 'Credito') totais.total_credito += sale.total;
-        }
-      });
-      
-      setResumo(totais);
       setVendasDetalhadas(vendasHoje);
     } catch (error) {
       toast({
