@@ -1559,7 +1559,12 @@ async def create_transferencia(transf: TransferenciaBase, current_user: User = D
     return transf_obj
 
 @api_router.get("/transferencias")
-async def get_transferencias(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
+async def get_transferencias(
+    filial_id: Optional[str] = None, 
+    skip: int = 0, 
+    limit: int = 100, 
+    current_user: User = Depends(get_current_active_user)
+):
     # Only admin/gerente can see all transferencias
     if current_user.role not in ["admin", "gerente"]:
         raise HTTPException(status_code=403, detail="Sem permissão para ver transferências")
@@ -1568,7 +1573,8 @@ async def get_transferencias(filial_id: Optional[str] = None, current_user: User
     if filial_id:
         query["filial_id"] = filial_id
     
-    transfs = await db.transferencias.find(query, {"_id": 0}).to_list(1000)
+    # Add pagination
+    transfs = await db.transferencias.find(query, {"_id": 0}).skip(skip).limit(min(limit, 500)).to_list(limit)
     for t in transfs:
         if isinstance(t.get('data'), str):
             t['data'] = datetime.fromisoformat(t['data'])
