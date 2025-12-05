@@ -175,7 +175,7 @@ export default function MyPerformance() {
                       
                       {!isConquistado && (
                         <p className="text-[10px] text-gray-400 mt-1 text-right">
-                          Meta: atingir {tier.percentual_meta}% da meta global
+                          
                         </p>
                       )}
                     </div>
