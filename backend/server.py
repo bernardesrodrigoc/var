@@ -1162,13 +1162,25 @@ async def get_pagamentos_detalhados(
         num_vendas = vendor_data["num_vendas"]
         total_pecas = vendor_data.get("total_pecas", 0)
         
+        # Extract month/year from date range first
+        try:
+            start_dt = datetime.fromisoformat(data_inicio.replace('Z', '+00:00'))
+            mes_inicio = start_dt.month
+            ano_inicio = start_dt.year
+            end_dt = datetime.fromisoformat(data_fim.replace('Z', '+00:00'))
+            mes_fim = end_dt.month
+            ano_fim = end_dt.year
+        except:
+            mes_inicio = mes_fim = datetime.now().month
+            ano_inicio = ano_fim = datetime.now().year
+        
         # Calculate base commission
         percentual_comissao = comissao_config.get("percentual_comissao", 1.0)
         comissao_base = (total_vendas * percentual_comissao) / 100
         
-        # Get vendor's goal
+        # Get vendor's goal (use start month/year)
         goal_doc = await db.goals.find_one(
-            {"vendedor": vendedor_nome, "mes": mes, "ano": ano}, 
+            {"vendedor": vendedor_nome, "mes": mes_inicio, "ano": ano_inicio}, 
             {"_id": 0}
         )
         
@@ -1191,19 +1203,6 @@ async def get_pagamentos_detalhados(
             if percentual_atingido >= tier["percentual_meta"]:
                 bonus_valor = tier["valor_bonus"]
                 break
-        
-        # Get vales for this vendor in this period
-        # Extract month/year from date range for vale filtering
-        try:
-            start_dt = datetime.fromisoformat(data_inicio.replace('Z', '+00:00'))
-            mes_inicio = start_dt.month
-            ano_inicio = start_dt.year
-            end_dt = datetime.fromisoformat(data_fim.replace('Z', '+00:00'))
-            mes_fim = end_dt.month
-            ano_fim = end_dt.year
-        except:
-            mes_inicio = mes_fim = datetime.now().month
-            ano_inicio = ano_fim = datetime.now().year
         
         # Filter vales by date range (same month/year range)
         vale_query = {"vendedora_id": vendedora_id}
