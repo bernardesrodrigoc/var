@@ -257,6 +257,70 @@ export default function FechamentoCaixa() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Histórico de Vendas Detalhadas */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Vendas do Dia ({vendasDetalhadas.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {vendasDetalhadas.length > 0 ? (
+            <div className="space-y-3">
+              {vendasDetalhadas.map((venda) => (
+                <div key={venda.id} className="p-4 border rounded-lg hover:bg-gray-50">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {venda.hora} - {venda.vendedor}
+                      </p>
+                      {venda.cliente_nome && (
+                        <p className="text-sm text-gray-500">Cliente: {venda.cliente_nome}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-indigo-600">
+                        {formatCurrency(venda.total)}
+                      </p>
+                      <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">
+                        {venda.modalidade_pagamento}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Produtos */}
+                  <div className="mt-2 space-y-1">
+                    {venda.items.map((item, idx) => (
+                      <div key={idx} className="text-sm text-gray-600 flex justify-between">
+                        <span>
+                          {item.quantidade}x {item.descricao}
+                        </span>
+                        <span className="font-medium">
+                          {formatCurrency(item.subtotal)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Pagamentos mistos */}
+                  {venda.modalidade_pagamento === 'Misto' && venda.pagamentos && (
+                    <div className="mt-2 pt-2 border-t">
+                      <p className="text-xs text-gray-500 mb-1">Formas de pagamento:</p>
+                      {venda.pagamentos.map((pag, idx) => (
+                        <div key={idx} className="text-xs text-gray-600 flex justify-between">
+                          <span>{pag.modalidade}</span>
+                          <span>{formatCurrency(pag.valor)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-500 py-8">Nenhuma venda realizada hoje</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
