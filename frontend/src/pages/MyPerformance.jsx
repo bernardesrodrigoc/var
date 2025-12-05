@@ -79,16 +79,7 @@ export default function MyPerformance() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total de Vendas</CardTitle>
-            <TrendingUp className="w-5 h-5 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalVendas)}</div>
-            <p className="text-xs text-gray-500 mt-1">{performance.num_vendas} vendas realizadas</p>
-          </CardContent>
-        </Card>
+        
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -119,80 +110,83 @@ export default function MyPerformance() {
         </Card>
       </div>
 
-      {/* Progresso Visual */}
+      {/* Progresso por Níveis de Bonificação */}
       <Card>
         <CardHeader>
-          <CardTitle>Progresso da Meta</CardTitle>
+          <CardTitle>Suas Conquistas e Bônus</CardTitle>
+          <CardDescription>Acompanhe seu progresso para cada prêmio</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* Barra de progresso principal */}
-            <div className="relative">
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Meta do Mês</span>
-                <span className="text-sm font-semibold text-indigo-600">
-                  100%
-                </span>
+            
+            {/* Loop para gerar uma barra por nível de bônus */}
+            {comissaoConfig.bonus_tiers
+              .sort((a, b) => a.percentual_meta - b.percentual_meta) // Garante ordem crescente
+              .map((tier, index) => {
+                
+                // Matemática: Quanto % deste nível específico já foi concluído?
+                // Ex: Se o nível pede 20% e eu tenho 10%, completei 50% deste nível.
+                let progressoNesteNivel = (percentualAtingido / tier.percentual_meta) * 100;
+                
+                // Trava em 100% se já passou
+                progressoNesteNivel = Math.min(progressoNesteNivel, 100);
+                
+                const isConquistado = progressoNesteNivel >= 100;
+
+                return (
+                  <div key={index} className="relative">
+                    {/* Cabeçalho da Barra Individual */}
+                    <div className="flex justify-between items-end mb-2">
+                      <div>
+                        <span className="text-sm font-bold text-gray-800 block">
+                          Nível {index + 1} 
+                          {isConquistado && <span className="ml-2 text-green-600 text-xs">✅ Conquistado!</span>}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          Prêmio: <span className="font-semibold text-green-600">{formatCurrency(tier.valor_bonus)}</span>
+                        </span>
+                      </div>
+                      <span className="text-xs font-medium text-gray-600">
+                        {Math.floor(progressoNesteNivel)}% concluído
+                      </span>
+                    </div>
+
+                    {/* Barra de Progresso */}
+                    <div className="h-4 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+                      <div
+                        className={`h-full transition-all duration-700 ${
+                          isConquistado 
+                            ? 'bg-green-500' // Fica verde quando completa
+                            : 'bg-indigo-500' // Fica azul/roxo enquanto busca
+                        }`}
+                        style={{ width: `${progressoNesteNivel}%` }}
+                      ></div>
+                    </div>
+                    
+                    {/* Dica de quanto falta (só se não completou) */}
+                    {!isConquistado && (
+                      <p className="text-[10px] text-gray-400 mt-1 text-right">
+                        Meta do nível: atingir {tier.percentual_meta}% da meta global
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+
+            {/* Barra Final: Meta Global (100%) */}
+            <div className="pt-4 border-t border-gray-100">
+              <div className="flex justify-between items-end mb-2">
+                <span className="text-sm font-bold text-gray-900">Meta Final (100%)</span>
+                <span className="text-xs font-medium text-gray-600">{percentualAtingido.toFixed(1)}% atingido</span>
               </div>
-              <div className="h-10 bg-gray-200 rounded-full overflow-hidden relative">
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500 flex items-center justify-end pr-3"
+                  className="h-full bg-gray-800 transition-all duration-500"
                   style={{ width: `${Math.min(percentualAtingido, 100)}%` }}
-                >
-                  {/* Mostra a % dentro da barra se ela for grande o suficiente */}
-                  {percentualAtingido >= 10 && (
-                    <span className="text-white font-bold text-sm">
-                      {percentualAtingido.toFixed(1)}%
-                    </span>
-                  )}
-                </div>
-                {/* Mostra a % fora da barra se ela for muito curta */}
-                {percentualAtingido < 10 && (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-semibold text-sm">
-                    {percentualAtingido.toFixed(1)}%
-                  </span>
-                )}
+                ></div>
               </div>
             </div>
 
-            {/* Motivação Baseada em Porcentagem */}
-            {(() => {
-              const proximaFaixa = comissaoConfig.bonus_tiers
-                .filter(t => t.percentual_meta > percentualAtingido)
-                .sort((a, b) => a.percentual_meta - b.percentual_meta)[0];
-              
-              if (proximaFaixa) {
-                // Calcula quanto falta em % para o próximo nível
-                const faltaPercentual = proximaFaixa.percentual_meta - percentualAtingido;
-                
-                return (
-                  <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-gray-700">
-                      🎯 <strong>Falta apenas {faltaPercentual.toFixed(1)}%</strong> da meta para você conquistar mais{' '}
-                      <strong className="text-green-600">{formatCurrency(proximaFaixa.valor_bonus)}</strong> de bônus!
-                    </p>
-                  </div>
-                );
-              } else if (percentualAtingido >= 100) {
-                return (
-                  <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border-2 border-yellow-500">
-                    <p className="text-sm font-bold text-yellow-800">
-                      🎉 Parabéns! Você bateu a meta (100%) e conquistou {formatCurrency(bonusAtingido)} de bônus!
-                    </p>
-                  </div>
-                );
-              } else {
-                // Caso padrão: quanto falta para 100%
-                const faltaParaCem = 100 - percentualAtingido;
-                return (
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-gray-700">
-                      💪 Continue assim! Faltam <strong>{faltaParaCem.toFixed(1)}%</strong> para bater sua meta total!
-                    </p>
-                  </div>
-                );
-              }
-            })()}
           </div>
         </CardContent>
       </Card>
