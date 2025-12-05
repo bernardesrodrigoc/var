@@ -1219,8 +1219,8 @@ async def get_pagamentos_detalhados(
         })
     
     return {
-        "mes": mes,
-        "ano": ano,
+        "data_inicio": data_inicio,
+        "data_fim": data_fim,
         "filial_id": filial_id,
         "vendedores": result,
         "percentual_comissao": comissao_config.get("percentual_comissao", 1.0)
