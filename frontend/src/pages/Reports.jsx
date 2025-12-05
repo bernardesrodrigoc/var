@@ -42,15 +42,21 @@ export default function Reports() {
       const filialParam = `filial_id=${selectedFilial.id}`;
       
       const [salesData, inventoryData, salesList] = await Promise.all([
-        api.get(`/reports/sales-by-vendor?mes=${selectedMonth}&ano=${selectedYear}&${filialParam}`).then(r => r.data),
+        api.get(`/reports/sales-by-vendor?data_inicio=${dataInicio}&data_fim=${dataFim}&${filialParam}`).then(r => r.data),
         api.get(`/reports/inventory-value?${filialParam}`).then(r => r.data),
         api.get(`/sales?${filialParam}`).then(r => r.data),
       ]);
 
       setSalesByVendor(salesData);
       setInventoryValue(inventoryData);
-      // Get last 10 sales
-      setRecentSales(salesList.slice(-10).reverse());
+      
+      // Filter sales by date range
+      const filteredSales = salesList.filter(sale => {
+        const saleDate = sale.data.split('T')[0];
+        return saleDate >= dataInicio && saleDate <= dataFim;
+      });
+      
+      setRecentSales(filteredSales.slice(-10).reverse());
     } catch (error) {
       console.error('Erro ao carregar relatórios:', error);
     } finally {
