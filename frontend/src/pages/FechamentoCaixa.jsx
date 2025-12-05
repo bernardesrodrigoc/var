@@ -242,6 +242,50 @@ export default function FechamentoCaixa() {
         </CardContent>
       </Card>
 
+      {/* Recebimentos de Clientes */}
+      {resumo && resumo.pagamentos && resumo.pagamentos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>💰 Recebimentos de Clientes ({resumo.num_pagamentos})</span>
+              <span className="text-lg text-green-600 font-bold">
+                Total: {formatCurrency(resumo.total_pagamentos)}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {resumo.pagamentos.map((pagamento, idx) => (
+                <div key={idx} className="p-4 border rounded-lg bg-green-50 hover:bg-green-100">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {new Date(pagamento.data).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})} - {pagamento.vendedora_nome}
+                      </p>
+                      <p className="text-sm text-gray-600">Cliente: {pagamento.customer_nome}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Forma: {pagamento.forma_pagamento}
+                      </p>
+                      {pagamento.observacoes && (
+                        <p className="text-xs text-gray-500 italic mt-1">{pagamento.observacoes}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-green-600">
+                        {formatCurrency(pagamento.valor)}
+                      </p>
+                      <span className="text-xs px-2 py-1 bg-green-200 text-green-800 rounded-full">
+                        Recebimento
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Histórico de Vendas Detalhadas */}
       <Card>
         <CardHeader>
