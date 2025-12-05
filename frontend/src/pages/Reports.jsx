@@ -14,8 +14,15 @@ export default function Reports() {
   const [salesByVendor, setSalesByVendor] = useState([]);
   const [inventoryValue, setInventoryValue] = useState(null);
   const [recentSales, setRecentSales] = useState([]);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  
+  // Date range - default to current month
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  
+  const [dataInicio, setDataInicio] = useState(firstDay.toISOString().split('T')[0]);
+  const [dataFim, setDataFim] = useState(lastDay.toISOString().split('T')[0]);
+  
   const [loading, setLoading] = useState(true);
   const { selectedFilial } = useFilial();
   const { toast } = useToast();
@@ -26,7 +33,7 @@ export default function Reports() {
     if (selectedFilial) {
       loadReports();
     }
-  }, [selectedMonth, selectedYear, selectedFilial]);
+  }, [dataInicio, dataFim, selectedFilial]);
 
   const loadReports = async () => {
     if (!selectedFilial) return;
