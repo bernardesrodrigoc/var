@@ -1320,6 +1320,44 @@ async def get_fechamento_hoje(current_user: User = Depends(get_current_active_us
             summary[r['_id']] = r['total']
         num_vendas += r['count']
     
+    # Get payments (pagamentos de saldo devedor) from today
+    today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
+    today_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc)
+    
+    pagamentos_hoje = await db.pagamentos_saldo.find({
+        "filial_id": filial_id,
+        "data": {
+            "$gte": today_start.isoformat(),
+            "$lte": today_end.isoformat()
+        }
+    }, {"_id": 0}).to_list(100)
+    
+    # Add payments to summary by payment method
+    pagamentos_por_forma = {
+        "Dinheiro": 0,
+        "Pix": 0,
+        "Cartao": 0,
+        "Transferencia": 0
+    }
+    
+    for pag in pagamentos_hoje:
+        forma = pag.get('forma_pagamento', 'Dinheiro')
+        valor = pag.get('valor', 0)
+        
+        # Map payment method names
+        if forma == "Cartao":
+            summary["Cartao"] += valor
+            pagamentos_por_forma["Cartao"] += valor
+        elif forma == "Pix":
+            summary["Pix"] += valor
+            pagamentos_por_forma["Pix"] += valor
+        elif forma == "Transferencia":
+            summary["Pix"] += valor  # Can be grouped with Pix or separate
+            pagamentos_por_forma["Transferencia"] += valor
+        else:  # Dinheiro or default
+            summary["Dinheiro"] += valor
+            pagamentos_por_forma["Dinheiro"] += valor
+    
     return {
         "total_dinheiro": summary["Dinheiro"],
         "total_pix": summary["Pix"],
@@ -1328,6 +1366,9 @@ async def get_fechamento_hoje(current_user: User = Depends(get_current_active_us
         "total_misto": summary["Misto"],
         "total_geral": sum(summary.values()),
         "num_vendas": num_vendas,
+        "num_pagamentos": len(pagamentos_hoje),
+        "pagamentos": pagamentos_hoje,
+        "total_pagamentos": sum(pagamentos_por_forma.values()),
         "filial_id": filial_id
     }
 
