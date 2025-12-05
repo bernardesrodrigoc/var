@@ -131,7 +131,7 @@ export default function MyPerformance() {
               <div className="flex justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Meta do Mês</span>
                 <span className="text-sm font-semibold text-indigo-600">
-                  {formatCurrency(meta)}
+                  100%
                 </span>
               </div>
               <div className="h-10 bg-gray-200 rounded-full overflow-hidden relative">
@@ -139,32 +139,36 @@ export default function MyPerformance() {
                   className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500 flex items-center justify-end pr-3"
                   style={{ width: `${Math.min(percentualAtingido, 100)}%` }}
                 >
+                  {/* Mostra a % dentro da barra se ela for grande o suficiente */}
                   {percentualAtingido >= 10 && (
                     <span className="text-white font-bold text-sm">
-                      {formatCurrency(totalVendas)}
+                      {percentualAtingido.toFixed(1)}%
                     </span>
                   )}
                 </div>
+                {/* Mostra a % fora da barra se ela for muito curta */}
                 {percentualAtingido < 10 && (
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-semibold text-sm">
-                    {formatCurrency(totalVendas)}
+                    {percentualAtingido.toFixed(1)}%
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Motivação */}
+            {/* Motivação Baseada em Porcentagem */}
             {(() => {
               const proximaFaixa = comissaoConfig.bonus_tiers
                 .filter(t => t.percentual_meta > percentualAtingido)
                 .sort((a, b) => a.percentual_meta - b.percentual_meta)[0];
               
               if (proximaFaixa) {
-                const faltaVender = ((proximaFaixa.percentual_meta / 100) * meta) - totalVendas;
+                // Calcula quanto falta em % para o próximo nível
+                const faltaPercentual = proximaFaixa.percentual_meta - percentualAtingido;
+                
                 return (
                   <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                     <p className="text-sm text-gray-700">
-                      🎯 <strong>Falta apenas {formatCurrency(Math.max(0, faltaVender))}</strong> para você conquistar mais{' '}
+                      🎯 <strong>Falta apenas {faltaPercentual.toFixed(1)}%</strong> da meta para você conquistar mais{' '}
                       <strong className="text-green-600">{formatCurrency(proximaFaixa.valor_bonus)}</strong> de bônus!
                     </p>
                   </div>
@@ -173,16 +177,17 @@ export default function MyPerformance() {
                 return (
                   <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border-2 border-yellow-500">
                     <p className="text-sm font-bold text-yellow-800">
-                      🎉 Parabéns! Você bateu a meta e conquistou {formatCurrency(bonusAtingido)} de bônus!
+                      🎉 Parabéns! Você bateu a meta (100%) e conquistou {formatCurrency(bonusAtingido)} de bônus!
                     </p>
                   </div>
                 );
               } else {
-                const faltaParaMeta = meta - performance.total_vendas;
+                // Caso padrão: quanto falta para 100%
+                const faltaParaCem = 100 - percentualAtingido;
                 return (
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <p className="text-sm text-gray-700">
-                      💪 Continue assim! Faltam <strong>{formatCurrency(Math.max(0, faltaParaMeta))}</strong> para bater sua meta!
+                      💪 Continue assim! Faltam <strong>{faltaParaCem.toFixed(1)}%</strong> para bater sua meta total!
                     </p>
                   </div>
                 );
@@ -191,60 +196,7 @@ export default function MyPerformance() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Metas de Bonificação */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Metas de Bonificação 🎁</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {comissaoConfig.bonus_tiers
-              .sort((a, b) => a.percentual_meta - b.percentual_meta)
-              .map((tier, index) => {
-                const valorMeta = (tier.percentual_meta / 100) * meta;
-                const isAtingida = totalVendas >= valorMeta;
-                const isAtual = bonusAtingido === tier.valor_bonus && isAtingida;
-                
-                return (
-                  <div 
-                    key={index}
-                    className={`p-4 rounded-lg border-2 ${
-                      isAtual 
-                        ? 'bg-green-50 border-green-500' 
-                        : isAtingida 
-                        ? 'bg-gray-100 border-gray-300'
-                        : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-900">
-                          {isAtual && '⭐ '}Meta {index + 1}
-                        </p>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Vendas de {formatCurrency(valorMeta)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-2xl font-bold ${
-                          isAtual ? 'text-green-600' : 'text-purple-600'
-                        }`}>
-                          {formatCurrency(tier.valor_bonus)}
-                        </p>
-                        {isAtingida && (
-                          <p className="text-xs text-green-600 font-medium mt-1">
-                            {isAtual ? '✓ Conquistado!' : '✓ Atingido'}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </CardContent>
-      </Card>
+      
     </div>
   );
 }
