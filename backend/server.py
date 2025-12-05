@@ -768,12 +768,18 @@ async def estornar_venda(sale_id: str, current_user: User = Depends(get_current_
     }
 
 @api_router.get("/sales", response_model=List[Sale])
-async def get_sales(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
+async def get_sales(
+    filial_id: Optional[str] = None, 
+    skip: int = 0, 
+    limit: int = 100, 
+    current_user: User = Depends(get_current_active_user)
+):
     query = {}
     if filial_id:
         query["filial_id"] = filial_id
     
-    sales = await db.sales.find(query, {"_id": 0}).to_list(1000)
+    # Add pagination and sort by date descending (most recent first)
+    sales = await db.sales.find(query, {"_id": 0}).sort("data", -1).skip(skip).limit(min(limit, 500)).to_list(limit)
     for s in sales:
         if isinstance(s.get('data'), str):
             s['data'] = datetime.fromisoformat(s['data'])
