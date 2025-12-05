@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { reportsAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useFilial } from '@/context/FilialContext';
