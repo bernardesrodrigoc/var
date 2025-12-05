@@ -24,8 +24,8 @@ build/
 .env.test.local
 .env.production.local
 
-# Environment variables
-.env
+# Environment variables (keep .env for deployment, ignore variants)
+# Note: .env files are needed for deployment
 
 # IDE
 .vscode/
