@@ -308,11 +308,22 @@ export default function Customers() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      {customer.saldo_devedor > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenPagamento(customer)}
+                          title="Receber pagamento"
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          <DollarSign className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleViewHistory(customer)}
-                        title="Ver histórico"
+                        onClick={() => handleViewPagamentos(customer)}
+                        title="Histórico de pagamentos"
                       >
                         <History className="w-4 h-4 text-blue-600" />
                       </Button>
