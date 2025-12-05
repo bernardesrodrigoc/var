@@ -12,6 +12,7 @@ import api from '@/lib/api';
 export default function FechamentoCaixa() {
   const [loading, setLoading] = useState(true);
   const [resumo, setResumo] = useState(null);
+  const [vendasDetalhadas, setVendasDetalhadas] = useState([]);
   const [observacoes, setObservacoes] = useState('');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
