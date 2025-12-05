@@ -7,7 +7,8 @@ WORKDIR /app
 COPY package*.json yarn.lock* ./
 
 # Instala dependências (tenta yarn, se falhar usa npm)
-RUN if [ -f yarn.lock ]; then yarn install; else npm install; fi
+# Adicionamos --legacy-peer-deps para ignorar o conflito do date-fns
+RUN if [ -f yarn.lock ]; then yarn install; else npm install --legacy-peer-deps; fi
 
 # Copia o restante do código
 COPY . .
