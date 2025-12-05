@@ -167,38 +167,34 @@ export default function Pagamentos() {
           <h1 className="text-3xl font-bold text-gray-900">Relatório de Pagamentos</h1>
           <p className="text-gray-500 mt-1">Resumo detalhado de comissões e bônus</p>
         </div>
-        <div className="flex gap-3">
-          <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {months.map((month) => (
-                <SelectItem key={month.value} value={month.value.toString()}>
-                  {month.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((year) => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex gap-3 items-center">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">De:</label>
+            <input
+              type="date"
+              value={dataInicio}
+              onChange={(e) => setDataInicio(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Até:</label>
+            <input
+              type="date"
+              value={dataFim}
+              onChange={(e) => setDataFim(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            />
+          </div>
         </div>
       </div>
 
       {/* Summary Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Resumo Geral - {months.find(m => m.value === selectedMonth)?.label} {selectedYear}</CardTitle>
+          <CardTitle>
+            Resumo Geral - {new Date(dataInicio).toLocaleDateString('pt-BR')} até {new Date(dataFim).toLocaleDateString('pt-BR')}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
