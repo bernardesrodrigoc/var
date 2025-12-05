@@ -132,14 +132,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
               onChange={(e) => setDataFim(e.target.value)}
               className="px-3 py-2 border rounded-md"
             />
-            <SelectContent>
-              {years.map((year) => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          </div>
         </div>
       </div>
 
