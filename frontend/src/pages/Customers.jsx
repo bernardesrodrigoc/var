@@ -9,7 +9,7 @@ import { customersAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { useFilial } from '@/context/FilialContext';
-import { Plus, Edit, Trash2, Search, User, History } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, User, History, DollarSign } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function Customers() {
