@@ -69,6 +69,7 @@ export default function FechamentoCaixa() {
       });
       
       setResumo(totais);
+      setVendasDetalhadas(vendasHoje);
     } catch (error) {
       toast({
         variant: 'destructive',
