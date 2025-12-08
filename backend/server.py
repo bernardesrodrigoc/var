@@ -363,10 +363,13 @@ async def create_product(product: ProductCreate, current_user: User = Depends(ge
     if current_user.role not in ["admin", "gerente"]:
         raise HTTPException(status_code=403, detail="Apenas administradores e gerentes podem cadastrar produtos")
     
-    # Check if codigo exists
-    existing = await db.products.find_one({"codigo": product.codigo}, {"_id": 0})
+    # Check if codigo exists IN THE SAME FILIAL (not globally)
+    existing = await db.products.find_one({
+        "codigo": product.codigo,
+        "filial_id": product.filial_id
+    }, {"_id": 0})
     if existing:
-        raise HTTPException(status_code=400, detail="Código de produto já existe")
+        raise HTTPException(status_code=400, detail="Código de produto já existe nesta filial")
     
     product_obj = Product(**product.model_dump())
     doc = product_obj.model_dump()
@@ -408,10 +411,15 @@ async def get_product(product_id: str, current_user: User = Depends(get_current_
     return Product(**product)
 
 @api_router.get("/products/barcode/{codigo}", response_model=Product)
-async def get_product_by_barcode(codigo: str, current_user: User = Depends(get_current_active_user)):
-    product = await db.products.find_one({"codigo": codigo}, {"_id": 0})
+async def get_product_by_barcode(codigo: str, filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
+    # Search for product by barcode in specific filial
+    query = {"codigo": codigo}
+    if filial_id:
+        query["filial_id"] = filial_id
+    
+    product = await db.products.find_one(query, {"_id": 0})
     if not product:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
+        raise HTTPException(status_code=404, detail="Produto não encontrado nesta filial")
     if isinstance(product.get('created_at'), str):
         product['created_at'] = datetime.fromisoformat(product['created_at'])
     if isinstance(product.get('updated_at'), str):
@@ -449,6 +457,16 @@ async def update_product(product_id: str, product: ProductCreate, current_user: 
     existing = await db.products.find_one({"id": product_id}, {"_id": 0})
     if not existing:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
+    
+    # Check if new codigo already exists in the same filial (excluding current product)
+    if product.codigo != existing.get('codigo'):
+        duplicate = await db.products.find_one({
+            "codigo": product.codigo,
+            "filial_id": product.filial_id,
+            "id": {"$ne": product_id}
+        }, {"_id": 0})
+        if duplicate:
+            raise HTTPException(status_code=400, detail="Código de produto já existe nesta filial")
     
     update_data = product.model_dump()
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
@@ -1646,10 +1664,65 @@ async def delete_filial(filial_id: str, current_user: User = Depends(get_current
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Apenas administradores podem excluir filiais")
     
-    result = await db.filiais.delete_one({"id": filial_id})
-    if result.deleted_count == 0:
+    # Check if filial exists
+    filial = await db.filiais.find_one({"id": filial_id}, {"_id": 0})
+    if not filial:
         raise HTTPException(status_code=404, detail="Filial não encontrada")
-    return {"message": "Filial excluída com sucesso"}
+    
+    # CASCADE DELETE: Delete all data related to this filial
+    deleted_counts = {}
+    
+    # Delete products
+    products_result = await db.products.delete_many({"filial_id": filial_id})
+    deleted_counts['products'] = products_result.deleted_count
+    
+    # Delete customers
+    customers_result = await db.customers.delete_many({"filial_id": filial_id})
+    deleted_counts['customers'] = customers_result.deleted_count
+    
+    # Delete sales
+    sales_result = await db.sales.delete_many({"filial_id": filial_id})
+    deleted_counts['sales'] = sales_result.deleted_count
+    
+    # Delete users (only users exclusively from this filial)
+    users_result = await db.users.delete_many({
+        "filial_id": filial_id,
+        "role": {"$ne": "admin"}  # Don't delete admins
+    })
+    deleted_counts['users'] = users_result.deleted_count
+    
+    # Delete vales
+    vales_result = await db.vales.delete_many({"filial_id": filial_id})
+    deleted_counts['vales'] = vales_result.deleted_count
+    
+    # Delete transferencias
+    transf_result = await db.transferencias.delete_many({"filial_id": filial_id})
+    deleted_counts['transferencias'] = transf_result.deleted_count
+    
+    # Delete pagamentos_saldo
+    pagamentos_result = await db.pagamentos_saldo.delete_many({"filial_id": filial_id})
+    deleted_counts['pagamentos'] = pagamentos_result.deleted_count
+    
+    # Delete goals
+    goals_result = await db.goals.delete_many({"filial_id": filial_id})
+    deleted_counts['goals'] = goals_result.deleted_count
+    
+    # Delete commission config
+    comissao_result = await db.comissao_config.delete_many({"filial_id": filial_id})
+    deleted_counts['comissao_config'] = comissao_result.deleted_count
+    
+    # Delete balanco estoque
+    balanco_result = await db.balanco_estoque.delete_many({"filial_id": filial_id})
+    deleted_counts['balanco_estoque'] = balanco_result.deleted_count
+    
+    # Finally, delete the filial itself
+    await db.filiais.delete_one({"id": filial_id})
+    
+    return {
+        "message": "Filial e todos os dados relacionados foram excluídos com sucesso",
+        "filial_nome": filial.get('nome'),
+        "deleted_counts": deleted_counts
+    }
 
 # ==================== BALANÇO DE ESTOQUE ROUTES ====================
 
