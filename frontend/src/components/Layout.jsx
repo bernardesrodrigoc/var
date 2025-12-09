@@ -1,9 +1,11 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, Users, TrendingUp, LogOut, Store, Calculator, Send, DollarSign, Building2, ClipboardCheck, MapPin, Settings, Wallet } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Users, TrendingUp, LogOut, Store, Calculator, Send, DollarSign, Building2, ClipboardCheck, MapPin, Settings, Wallet, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFilial } from '@/context/FilialContext';
+import { useState } from 'react';
 
 export default function Layout() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const { selectedFilial, clearFilial } = useFilial();
@@ -45,8 +47,21 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-indigo-600 text-white rounded-lg shadow-lg"
+      >
+        {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+      </button>
+
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-40
+        w-64 bg-white border-r border-gray-200
+        transform transition-transform duration-300 ease-in-out
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-200">
@@ -139,9 +154,17 @@ export default function Layout() {
         </div>
       </aside>
 
+      {/* Mobile Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 z-30 bg-black bg-opacity-50"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Main Content */}
-      <main className="pl-64">
-        <div className="p-8">
+      <main className="lg:pl-64">
+        <div className="p-4 lg:p-8 pt-16 lg:pt-8">
           <Outlet />
         </div>
       </main>
