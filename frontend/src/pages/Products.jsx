@@ -9,7 +9,7 @@ import { productsAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { useFilial } from '@/context/FilialContext';
-import { Plus, Edit, Trash2, Search, Barcode, Upload, Download, CheckCircle, AlertCircle, Package } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Barcode, Upload, Download, CheckCircle, AlertCircle, Tag } from 'lucide-react'; // Adicionei Tag aqui
 import api from '@/lib/api';
 import * as XLSX from 'xlsx';
 
@@ -77,8 +77,10 @@ export default function Products() {
       setFormData(product);
     } else {
       setEditingProduct(null);
+      // DICA EXTRA: Se quiser já preencher automaticamente o próximo código, use a linha comentada abaixo:
+      // const nextCode = lastCode + 1;
       setFormData({
-        codigo: '',
+        codigo: '', // ou codigo: nextCode.toString(),
         descricao: '',
         quantidade: 0,
         preco_custo: 0,
@@ -329,13 +331,33 @@ export default function Products() {
     return <div className="flex justify-center items-center h-96">Carregando...</div>;
   }
 
+  // --- NOVA FUNCIONALIDADE: CALCULAR ÚLTIMO CÓDIGO ---
+  const lastCode = products.reduce((max, p) => {
+    // Tenta converter o código para número
+    const num = parseInt(p.codigo, 10);
+    // Se for número válido e maior que o máximo atual, atualiza
+    return !isNaN(num) && num > max ? num : max;
+  }, 0);
+  // ---------------------------------------------------
+
   return (
     <div className="space-y-6" data-testid="products-page">
       {/* RESPONSIVO: Header muda de row para col em telas pequenas */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Produtos</h1>
-          <p className="text-sm md:text-base text-gray-500 mt-1">Gerencie seu catálogo - {selectedFilial?.nome}</p>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <p className="text-sm md:text-base text-gray-500">Gerencie seu catálogo - {selectedFilial?.nome}</p>
+            
+            {/* --- EXIBIÇÃO DO ÚLTIMO CÓDIGO --- */}
+            {lastCode > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200">
+                <Tag className="w-3 h-3" />
+                Último Cód: <strong>{lastCode}</strong>
+              </span>
+            )}
+            {/* ---------------------------------- */}
+          </div>
         </div>
         {canEdit && (
           // Botões empilhados no mobile, linha no desktop
@@ -360,7 +382,7 @@ export default function Products() {
         )}
       </div>
 
-      {/* Search */}
+      {/* Restante do código igual... */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center gap-2">
@@ -376,9 +398,6 @@ export default function Products() {
         </CardContent>
       </Card>
 
-      {/* MODO MOBILE: Card View (Visível apenas em mobile 'md:hidden') 
-         Aqui transformamos cada linha da tabela em um Card individual
-      */}
       <div className="grid grid-cols-1 gap-4 md:hidden">
         {filteredProducts.map((product) => (
           <Card key={product.id} className="shadow-sm">
@@ -435,9 +454,6 @@ export default function Products() {
           )}
       </div>
 
-      {/* MODO DESKTOP: Table View (Escondido em mobile 'hidden md:block') 
-         Essa é a sua tabela original
-      */}
       <Card className="hidden md:block">
         <CardHeader>
           <CardTitle>Lista de Produtos ({filteredProducts.length})</CardTitle>
@@ -517,7 +533,6 @@ export default function Products() {
         </CardContent>
       </Card>
 
-      {/* Product Dialog - Ajustado para mobile */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -552,7 +567,6 @@ export default function Products() {
                 onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
               />
             </div>
-            {/* Responsivo: 1 coluna no mobile, 2 no desktop */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="quantidade">Quantidade</Label>
@@ -602,7 +616,6 @@ export default function Products() {
         </DialogContent>
       </Dialog>
 
-      {/* Import Dialog - Ajustado para mobile */}
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
         <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -645,7 +658,6 @@ export default function Products() {
               </label>
             </div>
 
-            {/* Loading e Resultados (Mantive a lógica, só ajuste de tamanho se necessário) */}
             {importing && (
               <div className="flex items-center justify-center gap-2 text-blue-600">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
@@ -656,7 +668,6 @@ export default function Products() {
             {importResult && (
               <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                   {/* Cards de resultado ajustados para stackar no mobile */}
                   <Card>
                     <CardContent className="pt-4 flex items-center gap-2">
                         <CheckCircle className="w-5 h-5 text-green-500" />
@@ -666,7 +677,6 @@ export default function Products() {
                         </div>
                     </CardContent>
                   </Card>
-                  {/* ... outros cards de resultado ... */}
                   <Card>
                     <CardContent className="pt-4 flex items-center gap-2">
                         <CheckCircle className="w-5 h-5 text-blue-500" />
