@@ -113,7 +113,7 @@ export default function SalesAdvanced() {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (value.trim().length >= 2) {
+    if (value.trim().length >= 1) {
       searchTimeoutRef.current = setTimeout(async () => {
         try {
           // Buscar produtos da filial atual
