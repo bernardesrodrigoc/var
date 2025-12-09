@@ -39,14 +39,18 @@ export default function Vales() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
-    if (user.role !== 'admin') {
+    // ✅ CORREÇÃO: Verifica se é admin OU gerente
+    const canAccess = user.role === 'admin' || user.role === 'gerente';
+
+    if (!canAccess) {
       toast({
         variant: 'destructive',
         title: 'Acesso negado',
-        description: 'Apenas administradores podem acessar esta página',
+        description: 'Apenas administradores e gerentes podem acessar esta página',
       });
       return;
     }
+    
     if (selectedFilial) {
       loadData();
     }
