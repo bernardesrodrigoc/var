@@ -1145,9 +1145,9 @@ async def get_pagamentos_detalhados(
     Relatório detalhado de pagamentos para admins
     Mostra por vendedor: vendas, comissões, bônus, vales e total a pagar
     """
-    # Only admin can access this report
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Apenas administradores têm acesso a este relatório")
+    # Only admin and gerente can access this report
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Apenas administradores e gerentes têm acesso a este relatório")
     
     # Build query
     match_stage = {"estornada": {"$ne": True}}  # Excluir vendas estornadas
@@ -1499,9 +1499,9 @@ class Vale(ValeBase):
 
 @api_router.post("/vales")
 async def create_vale(vale: ValeBase, current_user: User = Depends(get_current_active_user)):
-    # Only admin can create vales
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Apenas administradores podem registrar vales")
+    # Only admin and gerente can create vales
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Apenas administradores e gerentes podem registrar vales")
     
     vale_obj = Vale(**vale.model_dump())
     doc = vale_obj.model_dump()
@@ -1526,9 +1526,9 @@ async def get_vales_vendedora(vendedora_id: str, mes: Optional[int] = None, ano:
 
 @api_router.put("/vales/{vale_id}")
 async def update_vale(vale_id: str, vale: ValeBase, current_user: User = Depends(get_current_active_user)):
-    # Only admin can update vales
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Apenas administradores podem editar vales")
+    # Only admin and gerente can update vales
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Apenas administradores e gerentes podem editar vales")
     
     update_data = vale.model_dump()
     result = await db.vales.update_one(
@@ -1543,9 +1543,9 @@ async def update_vale(vale_id: str, vale: ValeBase, current_user: User = Depends
 
 @api_router.delete("/vales/{vale_id}")
 async def delete_vale(vale_id: str, current_user: User = Depends(get_current_active_user)):
-    # Only admin can delete vales
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Apenas administradores podem excluir vales")
+    # Only admin and gerente can delete vales
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Apenas administradores e gerentes podem excluir vales")
     
     result = await db.vales.delete_one({"id": vale_id})
     
