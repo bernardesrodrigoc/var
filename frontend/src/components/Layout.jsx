@@ -56,8 +56,9 @@ export default function Layout() {
       </button>
 
       {/* Sidebar */}
+      {/* CORREÇÃO AQUI: mudei lg:static para lg:fixed */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-40
+        fixed lg:fixed inset-y-0 left-0 z-40
         w-64 bg-white border-r border-gray-200
         transform transition-transform duration-300 ease-in-out
         ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -135,22 +136,11 @@ export default function Layout() {
             </div>
           </div>
 
-          {/* Made with Emergent Card */}
-          <div className="p-4 border-t border-gray-200">
-            <div className="text-center">
-              <p className="text-xs text-gray-500">
-                Made with ❤️ by
-              </p>
-              <a 
-                href="https://emergent.ai" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800"
-              >
-                Emergent
-              </a>
-            </div>
-          </div>
+          {/* Made with Emergent Card - Removido conforme seu pedido anterior, 
+              mas se quiser manter, deixe aqui. Se quiser remover, pode apagar este bloco div abaixo */}
+           <div className="p-4 border-t border-gray-200">
+             {/* Conteúdo do rodapé da sidebar */}
+           </div>
         </div>
       </aside>
 
