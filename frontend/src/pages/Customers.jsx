@@ -38,6 +38,8 @@ export default function Customers() {
   });
   const { toast } = useToast();
   const { selectedFilial } = useFilial();
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const canDelete = user.role === 'admin' || user.role === 'gerente';
 
   useEffect(() => {
     if (selectedFilial) {
@@ -335,14 +337,16 @@ export default function Customers() {
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(customer.id)}
-                        data-testid={`delete-customer-${customer.nome}`}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(customer.id)}
+                          data-testid={`delete-customer-${customer.nome}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
