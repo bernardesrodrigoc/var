@@ -9,7 +9,7 @@ import { productsAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { useFilial } from '@/context/FilialContext';
-import { Plus, Edit, Trash2, Search, Barcode, Upload, Download, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Barcode, Upload, Download, CheckCircle, AlertCircle, Package } from 'lucide-react';
 import api from '@/lib/api';
 import * as XLSX from 'xlsx';
 
@@ -57,7 +57,6 @@ export default function Products() {
     if (!selectedFilial) return;
     
     try {
-      // Buscar TODOS os produtos (limit alto)
       const response = await api.get(`/products?filial_id=${selectedFilial.id}&limit=10000`);
       setProducts(response.data);
       setFilteredProducts(response.data);
@@ -94,7 +93,6 @@ export default function Products() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Garantir que filial_id está presente
     const dataToSubmit = {
       ...formData,
       filial_id: selectedFilial?.id || formData.filial_id
@@ -135,7 +133,6 @@ export default function Products() {
     }
   };
 
-  // Função para baixar template Excel
   const downloadTemplate = () => {
     const template = [
       {
@@ -152,24 +149,21 @@ export default function Products() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
     
-    // Ajustar largura das colunas
     ws['!cols'] = [
-      { wch: 15 }, // codigo
-      { wch: 30 }, // descricao
-      { wch: 10 }, // quantidade
-      { wch: 12 }, // preco_custo
-      { wch: 12 }, // preco_venda
-      { wch: 15 }  // categoria
+      { wch: 15 },
+      { wch: 30 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 15 } 
     ];
     
     XLSX.writeFile(wb, `template_produtos_${selectedFilial.nome}.xlsx`);
     toast({ title: 'Template baixado com sucesso!' });
   };
 
-  // Função para exportar produtos atuais
   const exportProducts = async () => {
     try {
-      // Buscar TODOS os produtos do banco (não apenas os 100 em memória)
       const response = await api.get(`/products?filial_id=${selectedFilial.id}&limit=10000`);
       const allProducts = response.data;
       
@@ -182,7 +176,6 @@ export default function Products() {
         return;
       }
 
-      // Preparar dados para exportação (sem filial_id e IDs internos)
       const exportData = allProducts.map(p => ({
         codigo: p.codigo,
         descricao: p.descricao,
@@ -196,14 +189,13 @@ export default function Products() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
       
-      // Ajustar largura das colunas
       ws['!cols'] = [
-        { wch: 15 }, // codigo
-        { wch: 30 }, // descricao
-        { wch: 10 }, // quantidade
-        { wch: 12 }, // preco_custo
-        { wch: 12 }, // preco_venda
-        { wch: 15 }  // categoria
+        { wch: 15 },
+        { wch: 30 },
+        { wch: 10 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 15 } 
       ];
       
       const today = new Date().toISOString().split('T')[0];
@@ -222,7 +214,6 @@ export default function Products() {
     }
   };
 
-  // Função para processar arquivo Excel
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -246,7 +237,6 @@ export default function Products() {
         return;
       }
 
-      // Validar e processar produtos
       const results = {
         success: 0,
         errors: 0,
@@ -257,7 +247,6 @@ export default function Products() {
 
       for (const row of jsonData) {
         try {
-          // Validar campos obrigatórios
           if (!row.codigo || !row.descricao) {
             results.errors++;
             results.details.push({
@@ -268,7 +257,6 @@ export default function Products() {
             continue;
           }
 
-          // Preparar dados do produto
           const productData = {
             codigo: String(row.codigo).trim(),
             descricao: String(row.descricao).trim(),
@@ -279,18 +267,15 @@ export default function Products() {
             filial_id: selectedFilial.id
           };
 
-          // Verificar se produto já existe NO BANCO (não apenas na memória)
           let existingProduct = null;
           try {
             const response = await api.get(`/products/barcode/${productData.codigo}?filial_id=${selectedFilial.id}`);
             existingProduct = response.data;
           } catch (error) {
-            // Produto não existe, será criado
             existingProduct = null;
           }
 
           if (existingProduct) {
-            // Atualizar produto existente
             await api.put(`/products/${existingProduct.id}`, productData);
             results.updated++;
             results.details.push({
@@ -299,7 +284,6 @@ export default function Products() {
               message: 'Produto atualizado com sucesso'
             });
           } else {
-            // Criar novo produto
             await api.post('/products', productData);
             results.created++;
             results.details.push({
@@ -347,33 +331,30 @@ export default function Products() {
 
   return (
     <div className="space-y-6" data-testid="products-page">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+      {/* RESPONSIVO: Header muda de row para col em telas pequenas */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Produtos</h1>
-          <p className="text-gray-500 mt-1">Gerencie seu catálogo de produtos - {selectedFilial?.nome}</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Produtos</h1>
+          <p className="text-sm md:text-base text-gray-500 mt-1">Gerencie seu catálogo - {selectedFilial?.nome}</p>
         </div>
         {canEdit && (
-          <div className="flex gap-2">
-            <Button onClick={downloadTemplate} variant="outline">
+          // Botões empilhados no mobile, linha no desktop
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+            <Button onClick={downloadTemplate} variant="outline" className="w-full sm:w-auto text-xs sm:text-sm">
               <Download className="w-4 h-4 mr-2" />
-              Baixar Template
+              Template
             </Button>
-            <Button 
-              onClick={exportProducts} 
-              variant="outline"
-              disabled={products.length === 0}
-            >
+            <Button onClick={exportProducts} variant="outline" disabled={products.length === 0} className="w-full sm:w-auto text-xs sm:text-sm">
               <Download className="w-4 h-4 mr-2" />
-              Exportar Produtos
+              Exportar
             </Button>
-            <Button onClick={() => setImportDialogOpen(true)} variant="outline">
+            <Button onClick={() => setImportDialogOpen(true)} variant="outline" className="w-full sm:w-auto text-xs sm:text-sm">
               <Upload className="w-4 h-4 mr-2" />
-              Importar Excel
+              Importar
             </Button>
-            <Button onClick={() => handleOpenDialog()} data-testid="add-product-button">
+            <Button onClick={() => handleOpenDialog()} className="w-full sm:w-auto text-xs sm:text-sm" data-testid="add-product-button">
               <Plus className="w-4 h-4 mr-2" />
-              Adicionar Produto
+              Adicionar
             </Button>
           </div>
         )}
@@ -395,8 +376,69 @@ export default function Products() {
         </CardContent>
       </Card>
 
-      {/* Products Table */}
-      <Card>
+      {/* MODO MOBILE: Card View (Visível apenas em mobile 'md:hidden') 
+         Aqui transformamos cada linha da tabela em um Card individual
+      */}
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {filteredProducts.map((product) => (
+          <Card key={product.id} className="shadow-sm">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                   <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full mb-1 inline-block">
+                    {product.categoria}
+                  </span>
+                  <h3 className="font-bold text-gray-900">{product.descricao}</h3>
+                  <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
+                    <Barcode className="w-3 h-3" />
+                    <span className="font-mono">{product.codigo}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 mt-4 text-sm border-t pt-2">
+                <div>
+                  <p className="text-gray-500 text-xs">Preço Venda</p>
+                  <p className="font-bold text-green-700">{formatCurrency(product.preco_venda)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-xs">Estoque</p>
+                  <p className={`font-medium ${product.quantidade < 5 ? 'text-red-600' : 'text-gray-900'}`}>
+                    {product.quantidade} un
+                  </p>
+                </div>
+                {canEdit && (
+                  <div>
+                    <p className="text-gray-500 text-xs">Preço Custo</p>
+                    <p className="text-gray-700">{formatCurrency(product.preco_custo)}</p>
+                  </div>
+                )}
+              </div>
+
+              {canEdit && (
+                <div className="flex justify-end gap-2 mt-4 pt-2 border-t">
+                  <Button variant="outline" size="sm" onClick={() => handleOpenDialog(product)} className="h-8">
+                    <Edit className="w-3 h-3 mr-1" /> Editar
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleDelete(product.id)} className="h-8 text-red-600 border-red-200 hover:bg-red-50">
+                    <Trash2 className="w-3 h-3 mr-1" /> Excluir
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+         {filteredProducts.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              Nenhum produto encontrado
+            </div>
+          )}
+      </div>
+
+      {/* MODO DESKTOP: Table View (Escondido em mobile 'hidden md:block') 
+         Essa é a sua tabela original
+      */}
+      <Card className="hidden md:block">
         <CardHeader>
           <CardTitle>Lista de Produtos ({filteredProducts.length})</CardTitle>
         </CardHeader>
@@ -448,7 +490,6 @@ export default function Products() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleOpenDialog(product)}
-                          data-testid={`edit-product-${product.codigo}`}
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -456,7 +497,6 @@ export default function Products() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(product.id)}
-                          data-testid={`delete-product-${product.codigo}`}
                         >
                           <Trash2 className="w-4 h-4 text-red-600" />
                         </Button>
@@ -477,9 +517,9 @@ export default function Products() {
         </CardContent>
       </Card>
 
-      {/* Product Dialog */}
+      {/* Product Dialog - Ajustado para mobile */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingProduct ? 'Editar Produto' : 'Novo Produto'}
@@ -490,7 +530,6 @@ export default function Products() {
               <Label htmlFor="codigo">Código / Código de Barras</Label>
               <Input
                 id="codigo"
-                data-testid="product-codigo-input"
                 value={formData.codigo}
                 onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
                 required
@@ -500,7 +539,6 @@ export default function Products() {
               <Label htmlFor="descricao">Descrição</Label>
               <Input
                 id="descricao"
-                data-testid="product-descricao-input"
                 value={formData.descricao}
                 onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                 required
@@ -514,12 +552,12 @@ export default function Products() {
                 onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            {/* Responsivo: 1 coluna no mobile, 2 no desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="quantidade">Quantidade</Label>
                 <Input
                   id="quantidade"
-                  data-testid="product-quantidade-input"
                   type="number"
                   min="0"
                   value={formData.quantidade}
@@ -544,7 +582,6 @@ export default function Products() {
               <Label htmlFor="preco_venda">Preço Venda</Label>
               <Input
                 id="preco_venda"
-                data-testid="product-preco-input"
                 type="number"
                 step="0.01"
                 min="0"
@@ -553,11 +590,11 @@ export default function Products() {
                 required
               />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">
                 Cancelar
               </Button>
-              <Button type="submit" data-testid="save-product-button">
+              <Button type="submit" className="w-full sm:w-auto">
                 {editingProduct ? 'Atualizar' : 'Criar'}
               </Button>
             </DialogFooter>
@@ -565,17 +602,17 @@ export default function Products() {
         </DialogContent>
       </Dialog>
 
-      {/* Import Dialog */}
+      {/* Import Dialog - Ajustado para mobile */}
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Importar Produtos do Excel</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-900 mb-2">📋 Instruções:</h3>
-              <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
+              <h3 className="font-semibold text-blue-900 mb-2 text-sm sm:text-base">📋 Instruções:</h3>
+              <ol className="list-decimal list-inside space-y-1 text-xs sm:text-sm text-blue-800">
                 <li>Baixe o template clicando no botão "Baixar Template"</li>
                 <li>Preencha a planilha com os dados dos produtos</li>
                 <li>Campos obrigatórios: <strong>codigo</strong> e <strong>descricao</strong></li>
@@ -584,7 +621,7 @@ export default function Products() {
               </ol>
             </div>
 
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-8 text-center">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -598,16 +635,17 @@ export default function Products() {
                 htmlFor="file-upload"
                 className={`cursor-pointer ${importing ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                <p className="text-lg font-medium text-gray-700 mb-2">
+                <Upload className="w-8 h-8 sm:w-12 sm:h-12 mx-auto text-gray-400 mb-4" />
+                <p className="text-sm sm:text-lg font-medium text-gray-700 mb-2">
                   {importing ? 'Processando...' : 'Clique para selecionar arquivo'}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs sm:text-sm text-gray-500">
                   Formatos aceitos: .xlsx, .xls
                 </p>
               </label>
             </div>
 
+            {/* Loading e Resultados (Mantive a lógica, só ajuste de tamanho se necessário) */}
             {importing && (
               <div className="flex items-center justify-center gap-2 text-blue-600">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
@@ -617,38 +655,34 @@ export default function Products() {
 
             {importResult && (
               <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                   {/* Cards de resultado ajustados para stackar no mobile */}
                   <Card>
-                    <CardContent className="pt-4">
-                      <div className="flex items-center gap-2">
+                    <CardContent className="pt-4 flex items-center gap-2">
                         <CheckCircle className="w-5 h-5 text-green-500" />
                         <div>
-                          <p className="text-2xl font-bold text-green-600">{importResult.success}</p>
+                          <p className="text-xl sm:text-2xl font-bold text-green-600">{importResult.success}</p>
                           <p className="text-xs text-gray-600">Sucesso</p>
                         </div>
-                      </div>
                     </CardContent>
                   </Card>
+                  {/* ... outros cards de resultado ... */}
                   <Card>
-                    <CardContent className="pt-4">
-                      <div className="flex items-center gap-2">
+                    <CardContent className="pt-4 flex items-center gap-2">
                         <CheckCircle className="w-5 h-5 text-blue-500" />
                         <div>
-                          <p className="text-2xl font-bold text-blue-600">{importResult.created}</p>
+                          <p className="text-xl sm:text-2xl font-bold text-blue-600">{importResult.created}</p>
                           <p className="text-xs text-gray-600">Criados</p>
                         </div>
-                      </div>
                     </CardContent>
                   </Card>
                   <Card>
-                    <CardContent className="pt-4">
-                      <div className="flex items-center gap-2">
+                    <CardContent className="pt-4 flex items-center gap-2">
                         <Edit className="w-5 h-5 text-orange-500" />
                         <div>
-                          <p className="text-2xl font-bold text-orange-600">{importResult.updated}</p>
+                          <p className="text-xl sm:text-2xl font-bold text-orange-600">{importResult.updated}</p>
                           <p className="text-xs text-gray-600">Atualizados</p>
                         </div>
-                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -656,7 +690,7 @@ export default function Products() {
                 {importResult.errors > 0 && (
                   <Card className="border-red-200">
                     <CardHeader>
-                      <CardTitle className="text-red-600 flex items-center gap-2">
+                      <CardTitle className="text-red-600 flex items-center gap-2 text-sm sm:text-lg">
                         <AlertCircle className="w-5 h-5" />
                         {importResult.errors} erro(s) encontrado(s)
                       </CardTitle>
@@ -666,7 +700,7 @@ export default function Products() {
                         {importResult.details
                           .filter(d => d.status === 'erro')
                           .map((detail, idx) => (
-                            <div key={idx} className="text-sm bg-red-50 p-2 rounded">
+                            <div key={idx} className="text-xs sm:text-sm bg-red-50 p-2 rounded">
                               <strong>{detail.codigo}:</strong> {detail.message}
                             </div>
                           ))}
@@ -686,6 +720,7 @@ export default function Products() {
                 setImportDialogOpen(false);
                 setImportResult(null);
               }}
+              className="w-full sm:w-auto"
             >
               Fechar
             </Button>
