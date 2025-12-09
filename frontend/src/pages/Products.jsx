@@ -57,7 +57,8 @@ export default function Products() {
     if (!selectedFilial) return;
     
     try {
-      const response = await api.get(`/products?filial_id=${selectedFilial.id}`);
+      // Buscar TODOS os produtos (limit alto)
+      const response = await api.get(`/products?filial_id=${selectedFilial.id}&limit=10000`);
       setProducts(response.data);
       setFilteredProducts(response.data);
     } catch (error) {
@@ -166,47 +167,59 @@ export default function Products() {
   };
 
   // Função para exportar produtos atuais
-  const exportProducts = () => {
-    if (products.length === 0) {
+  const exportProducts = async () => {
+    try {
+      // Buscar TODOS os produtos do banco (não apenas os 100 em memória)
+      const response = await api.get(`/products?filial_id=${selectedFilial.id}&limit=10000`);
+      const allProducts = response.data;
+      
+      if (allProducts.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Nenhum produto',
+          description: 'Não há produtos para exportar',
+        });
+        return;
+      }
+
+      // Preparar dados para exportação (sem filial_id e IDs internos)
+      const exportData = allProducts.map(p => ({
+        codigo: p.codigo,
+        descricao: p.descricao,
+        quantidade: p.quantidade,
+        preco_custo: p.preco_custo,
+        preco_venda: p.preco_venda,
+        categoria: p.categoria || 'Geral'
+      }));
+      
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+      
+      // Ajustar largura das colunas
+      ws['!cols'] = [
+        { wch: 15 }, // codigo
+        { wch: 30 }, // descricao
+        { wch: 10 }, // quantidade
+        { wch: 12 }, // preco_custo
+        { wch: 12 }, // preco_venda
+        { wch: 15 }  // categoria
+      ];
+      
+      const today = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `produtos_${selectedFilial.nome}_${today}.xlsx`);
+      
+      toast({ 
+        title: 'Produtos exportados!',
+        description: `${allProducts.length} produtos exportados com sucesso` 
+      });
+    } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Nenhum produto',
-        description: 'Não há produtos para exportar',
+        title: 'Erro ao exportar',
+        description: 'Não foi possível exportar os produtos',
       });
-      return;
     }
-
-    // Preparar dados para exportação (sem filial_id e IDs internos)
-    const exportData = products.map(p => ({
-      codigo: p.codigo,
-      descricao: p.descricao,
-      quantidade: p.quantidade,
-      preco_custo: p.preco_custo,
-      preco_venda: p.preco_venda,
-      categoria: p.categoria || 'Geral'
-    }));
-    
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
-    
-    // Ajustar largura das colunas
-    ws['!cols'] = [
-      { wch: 15 }, // codigo
-      { wch: 30 }, // descricao
-      { wch: 10 }, // quantidade
-      { wch: 12 }, // preco_custo
-      { wch: 12 }, // preco_venda
-      { wch: 15 }  // categoria
-    ];
-    
-    const today = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `produtos_${selectedFilial.nome}_${today}.xlsx`);
-    
-    toast({ 
-      title: 'Produtos exportados!',
-      description: `${products.length} produtos exportados com sucesso` 
-    });
   };
 
   // Função para processar arquivo Excel
@@ -266,8 +279,15 @@ export default function Products() {
             filial_id: selectedFilial.id
           };
 
-          // Verificar se produto já existe
-          const existingProduct = products.find(p => p.codigo === productData.codigo);
+          // Verificar se produto já existe NO BANCO (não apenas na memória)
+          let existingProduct = null;
+          try {
+            const response = await api.get(`/products/barcode/${productData.codigo}?filial_id=${selectedFilial.id}`);
+            existingProduct = response.data;
+          } catch (error) {
+            // Produto não existe, será criado
+            existingProduct = null;
+          }
 
           if (existingProduct) {
             // Atualizar produto existente
