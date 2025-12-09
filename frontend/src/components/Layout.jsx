@@ -119,21 +119,7 @@ export default function Layout() {
           </div>
 
           {/* Made with Emergent Card */}
-          <div className="p-4 border-t border-gray-200">
-            <div className="text-center">
-              <p className="text-xs text-gray-500">
-                Made with ❤️ by
-              </p>
-              <a 
-                href="https://emergent.ai" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800"
-              >
-                Emergent
-              </a>
-            </div>
-          </div>
+          
         </div>
       </aside>
 
