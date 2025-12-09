@@ -23,6 +23,8 @@ export default function Layout() {
   // Show performance page for vendedoras
   const showPerformance = user.role === 'vendedora';
   const isAdmin = user.role === 'admin';
+  const isManager = user.role === 'gerente';
+  const isAdminOrManager = isAdmin || isManager;
 
   const navigation = [
     ...(!showPerformance ? [{ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }] : []),
@@ -33,9 +35,9 @@ export default function Layout() {
     { name: 'Fechamento', href: '/fechamento-caixa', icon: Calculator },
     { name: 'Transferências', href: '/transferencias', icon: Send },
     ...(!showPerformance ? [{ name: 'Relatórios', href: '/reports', icon: TrendingUp }] : []),
-    ...(isAdmin ? [{ name: 'Pagamentos', href: '/pagamentos', icon: Wallet }] : []),
+    ...(isAdminOrManager ? [{ name: 'Pagamentos', href: '/pagamentos', icon: Wallet }] : []),
     ...(isAdmin ? [{ name: 'Vendedoras', href: '/manage-users', icon: Users }] : []),
-    ...(isAdmin ? [{ name: 'Vales', href: '/vales', icon: DollarSign }] : []),
+    ...(isAdminOrManager ? [{ name: 'Vales', href: '/vales', icon: DollarSign }] : []),
     ...(isAdmin ? [{ name: 'Filiais', href: '/filiais', icon: Building2 }] : []),
     ...(isAdmin ? [{ name: 'Comissões', href: '/comissao-config', icon: Settings }] : []),
     { name: 'Balanço', href: '/balanco-estoque', icon: ClipboardCheck },
@@ -47,13 +49,13 @@ export default function Layout() {
       <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center gap-2 px-6 py-2 border-b border-gray-200">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <Store className="w-4 h-4 text-white" />
+          <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-200">
+            <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <Store className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-gray-900">ExploTrack</h1>
-              <p className="text-[10px] text-gray-500">Gestão de Varejo</p>
+              <h1 className="text-lg font-bold text-gray-900">ExploTrack</h1>
+              <p className="text-xs text-gray-500">Gestão de Varejo</p>
             </div>
           </div>
 
@@ -115,6 +117,23 @@ export default function Layout() {
               >
                 <LogOut className="w-5 h-5" />
               </Button>
+            </div>
+          </div>
+
+          {/* Made with Emergent Card */}
+          <div className="p-4 border-t border-gray-200">
+            <div className="text-center">
+              <p className="text-xs text-gray-500">
+                Made with ❤️ by
+              </p>
+              <a 
+                href="https://emergent.ai" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800"
+              >
+                Emergent
+              </a>
             </div>
           </div>
         </div>
