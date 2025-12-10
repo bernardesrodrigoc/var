@@ -934,7 +934,11 @@ async def get_dashboard_stats(filial_id: Optional[str] = None, current_user: Use
     
     # Total sales today (excluindo estornadas)
     today = datetime.now(timezone.utc).date()
-    sales_query = {**query, "data": {"$gte": today.isoformat()}, "estornada": {"$ne": True}}
+    
+
+    sales_query = {**query, "data": {"$gte": today.isoformat()}, "estornada": {"$ne": True}, "is_troca": {"$ne": True}}
+
+    
     sales_today = await db.sales.count_documents(sales_query)
     
     # Revenue today (excluindo estornadas)
@@ -970,7 +974,7 @@ async def get_sales_by_vendor(
     if current_user.role == "vendedora":
         raise HTTPException(status_code=403, detail="Vendedoras não têm acesso a relatórios gerais")
     
-    match_stage = {"estornada": {"$ne": True}}  # Excluir vendas estornadas
+    match_stage = {"estornada": {"$ne": True}, "is_troca": {"$ne": True}}  # Excluir vendas estornadas
     if filial_id:
         match_stage["filial_id"] = filial_id
     
@@ -1054,7 +1058,8 @@ async def get_my_performance(current_user: User = Depends(get_current_active_use
         {"$match": {
             "vendedor": current_user.full_name,
             "data": {"$gte": start_date.isoformat(), "$lt": end_date.isoformat()},
-            "estornada": {"$ne": True}  # Excluir vendas estornadas
+            "estornada": {"$ne": True},
+            "is_troca": {"$ne": True}
         }},
         {"$group": {
             "_id": None,
@@ -1150,7 +1155,7 @@ async def get_pagamentos_detalhados(
         raise HTTPException(status_code=403, detail="Apenas administradores e gerentes têm acesso a este relatório")
     
     # Build query
-    match_stage = {"estornada": {"$ne": True}}  # Excluir vendas estornadas
+    match_stage = {"estornada": {"$ne": True}, "is_troca": {"$ne": True}}  # Excluir vendas estornadas
     if filial_id:
         match_stage["filial_id"] = filial_id
     
@@ -1331,7 +1336,9 @@ async def get_fechamento_hoje(current_user: User = Depends(get_current_active_us
     pipeline = [
         {"$match": {
             "vendedor": {"$in": vendedores_filial},
-            "data": {"$gte": today.isoformat()}
+            "data": {"$gte": today.isoformat()},
+            "estornada": {"$ne": True}, # Garante que estornos não entrem
+            "is_troca": {"$ne": True}   # Garante que trocas não entrem
         }},
         {"$group": {
             "_id": "$modalidade_pagamento",
