@@ -559,6 +559,33 @@ async def delete_customer(customer_id: str, current_user: User = Depends(get_cur
     return {"message": "Cliente excluído com sucesso"}
 
 
+@api_router.get("/customers/{customer_id}/compras-fiado")
+async def get_compras_fiado(customer_id: str, current_user: User = Depends(get_current_active_user)):
+    """
+    Retorna o histórico detalhado de compras feitas no 'Fiado' (Crédito)
+    para conferência dos itens pelo cliente.
+    """
+    # Busca vendas:
+    # 1. Deste cliente
+    # 2. Modalidade "Credito" (Fiado)
+    # 3. Que NÃO foram estornadas
+    vendas = await db.sales.find(
+        {
+            "customer_id": customer_id, 
+            "modalidade_pagamento": "Credito",
+            "estornada": {"$ne": True}
+        }, 
+        {"_id": 0}
+    ).sort("data", -1).to_list(200) # Limite das últimas 200 compras
+    
+    # Formata datas para o padrão correto
+    for v in vendas:
+        if isinstance(v.get('data'), str):
+            v['data'] = datetime.fromisoformat(v['data'])
+            
+    return vendas
+
+
 # ==================== PAGAMENTO SALDO DEVEDOR ====================
 
 class PagamentoSaldoBase(BaseModel):
