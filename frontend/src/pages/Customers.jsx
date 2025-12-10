@@ -47,6 +47,7 @@ export default function Customers() {
   const { selectedFilial } = useFilial();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const canDelete = user.role === 'admin' || user.role === 'gerente';
+  const canEditBalance = user.role === 'admin' || user.role === 'gerente';
 
   useEffect(() => {
     if (selectedFilial) {
@@ -614,7 +615,12 @@ export default function Customers() {
                   min="0"
                   value={formData.saldo_devedor}
                   onChange={(e) => setFormData({ ...formData, saldo_devedor: parseFloat(e.target.value) || 0 })}
+                  disabled={!canEditBalance}
                 />
+                {/* Opcional: Mostrar aviso visual se estiver bloqueado */}
+                {!canEditBalance && (
+                  <p className="text-[10px] text-gray-500">Apenas gerentes podem alterar o saldo manualmente.</p>
+                )}
               </div>
             </div>
             <DialogFooter>
