@@ -50,7 +50,7 @@ export default function FechamentoCaixa() {
       const salesResponse = await api.get(`/sales?filial_id=${selectedFilial.id}`);
       const vendasHoje = salesResponse.data.filter(sale => {
         const saleDate = new Date(sale.data).toISOString().split('T')[0];
-        return saleDate === hoje && !sale.estornada;
+        return saleDate === hoje && !sale.estornada && !sale.is_troca;
       });
       
       setVendasDetalhadas(vendasHoje);
