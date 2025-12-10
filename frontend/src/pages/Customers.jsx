@@ -9,7 +9,7 @@ import { customersAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { useFilial } from '@/context/FilialContext';
-import { Plus, Edit, Trash2, Search, User, History, DollarSign } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, User, History, DollarSign, ShoppingBag } from 'lucide-react'; // <--- Adicionado ShoppingBag
 import api from '@/lib/api';
 
 export default function Customers() {
@@ -17,11 +17,17 @@ export default function Customers() {
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  
+  // Dialogs States
   const [dialogOpen, setDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [pagamentoDialogOpen, setPagamentoDialogOpen] = useState(false);
+  const [creditHistoryDialogOpen, setCreditHistoryDialogOpen] = useState(false); // <--- Novo Dialog
+  
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [customerHistory, setCustomerHistory] = useState([]);
+  const [creditPurchases, setCreditPurchases] = useState([]); // <--- Novo Estado para Compras Fiado
+  
   const [selectedCustomerPagamento, setSelectedCustomerPagamento] = useState(null);
   const [pagamentoData, setPagamentoData] = useState({
     valor: '',
@@ -36,6 +42,7 @@ export default function Customers() {
     limite_credito: 0,
     saldo_devedor: 0,
   });
+  
   const { toast } = useToast();
   const { selectedFilial } = useFilial();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -97,7 +104,6 @@ export default function Customers() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Garantir que filial_id está presente
     const dataToSubmit = {
       ...formData,
       filial_id: selectedFilial?.id || formData.filial_id
@@ -137,22 +143,6 @@ export default function Customers() {
       });
     }
   };
-
-  const handleViewHistory = async (customer) => {
-    try {
-      const response = await customersAPI.getSales(customer.id);
-      setCustomerHistory(response);
-      setEditingCustomer(customer);
-      setHistoryDialogOpen(true);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'Não foi possível carregar o histórico',
-      });
-    }
-  };
-
 
   const handleOpenPagamento = (customer) => {
     setSelectedCustomerPagamento(customer);
@@ -229,6 +219,22 @@ export default function Customers() {
     }
   };
 
+  // --- NOVA FUNÇÃO: Ver o que comprou no Fiado ---
+  const handleViewCreditPurchases = async (customer) => {
+    try {
+      const response = await api.get(`/customers/${customer.id}/compras-fiado`);
+      setCreditPurchases(response.data);
+      setEditingCustomer(customer);
+      setCreditHistoryDialogOpen(true);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível carregar as compras a prazo',
+      });
+    }
+  };
+  // -----------------------------------------------
 
   if (loading) {
     return <div className="flex justify-center items-center h-96">Carregando...</div>;
@@ -310,6 +316,7 @@ export default function Customers() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      {/* Botão de Receber Pagamento */}
                       {customer.saldo_devedor > 0 && (
                         <Button
                           variant="ghost"
@@ -321,6 +328,21 @@ export default function Customers() {
                           <DollarSign className="w-4 h-4" />
                         </Button>
                       )}
+
+                      {/* --- NOVO BOTÃO: Ver Itens do Fiado --- */}
+                      {customer.saldo_devedor > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewCreditPurchases(customer)}
+                          title="Ver o que comprou no fiado"
+                          className="text-purple-600 hover:text-purple-700"
+                        >
+                          <ShoppingBag className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {/* -------------------------------------- */}
+
                       <Button
                         variant="ghost"
                         size="icon"
@@ -361,7 +383,7 @@ export default function Customers() {
         </CardContent>
       </Card>
 
-      {/* History Dialog - Histórico de Pagamentos */}
+      {/* History Dialog - Pagamentos */}
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -398,6 +420,65 @@ export default function Customers() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* --- NOVO DIALOG: Histórico de Compras no Fiado --- */}
+      <Dialog open={creditHistoryDialogOpen} onOpenChange={setCreditHistoryDialogOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Compras no Fiado (Itens) - {editingCustomer?.nome}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {creditPurchases.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Nenhuma compra a prazo encontrada.
+              </div>
+            ) : (
+              creditPurchases.map((venda) => (
+                <div key={venda.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-center mb-3 pb-2 border-b">
+                    <div>
+                      <p className="font-bold text-gray-900">
+                        Data: {new Date(venda.data).toLocaleDateString('pt-BR')}
+                      </p>
+                      <p className="text-xs text-gray-500">Vendedora: {venda.vendedor}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-red-600">
+                        {formatCurrency(venda.total)}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Lista de Itens daquela venda */}
+                  <div className="bg-white rounded border p-3">
+                    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase">Itens da Compra</p>
+                    <ul className="space-y-2">
+                      {venda.items.map((item, idx) => (
+                        <li key={idx} className="flex justify-between text-sm">
+                          <span className="text-gray-700">
+                            {item.quantidade}x {item.descricao}
+                          </span>
+                          <span className="font-medium text-gray-900">
+                            {formatCurrency(item.subtotal)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreditHistoryDialogOpen(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* -------------------------------------------------- */}
 
       {/* Pagamento Dialog */}
       <Dialog open={pagamentoDialogOpen} onOpenChange={setPagamentoDialogOpen}>
