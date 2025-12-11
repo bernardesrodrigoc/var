@@ -139,6 +139,7 @@ class SaleBase(BaseModel):
     filial_id: str  # Venda pertence a uma filial
 
 class SaleCreate(SaleBase):
+    data: Optional[datetime] = None
     pass
 
 class Sale(SaleBase):
@@ -704,7 +705,12 @@ async def create_sale(sale: SaleCreate, current_user: User = Depends(get_current
             )
     
     # Create sale
-    sale_obj = Sale(**sale.model_dump())
+    sale_data = sale.model_dump()
+    # Se não enviou data (venda normal), usa AGORA. Se enviou (retroativa), usa a enviada.
+    if not sale_data.get('data'):
+        sale_data['data'] = datetime.now(timezone.utc)
+    
+    sale_obj = Sale(**sale_data)
     doc = sale_obj.model_dump()
     doc['data'] = doc['data'].isoformat()
     
