@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { reportsAPI, salesAPI } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useFilial } from '@/context/FilialContext';
 import { useToast } from '@/components/ui/use-toast';
 import { FileText, Download, Calendar, XCircle, AlertTriangle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '@/lib/api';
 
 export default function Reports() {
   const [salesByVendor, setSalesByVendor] = useState([]);
   const [inventoryValue, setInventoryValue] = useState(null);
-  const [recentSales, setRecentSales] = useState([]);
+  const [allSales, setAllSales] = useState([]); // Renomeado de recentSales para allSales
   
   // Date range - default to current month
   const now = new Date();
@@ -40,23 +38,22 @@ export default function Reports() {
     
     try {
       const filialParam = `filial_id=${selectedFilial.id}`;
+      // Define o final do dia para pegar todas as vendas da data final
+      const fimDoDia = `${dataFim}T23:59:59`;
       
       const [salesData, inventoryData, salesList] = await Promise.all([
         api.get(`/reports/sales-by-vendor?data_inicio=${dataInicio}&data_fim=${dataFim}&${filialParam}`).then(r => r.data),
         api.get(`/reports/inventory-value?${filialParam}`).then(r => r.data),
-        api.get(`/sales?${filialParam}`).then(r => r.data),
+        // --- NOVA BUSCA: Filtra por data no backend e pede até 5000 itens ---
+        api.get(`/sales?${filialParam}&data_inicio=${dataInicio}&data_fim=${fimDoDia}&limit=5000`).then(r => r.data),
       ]);
 
       setSalesByVendor(salesData);
       setInventoryValue(inventoryData);
       
-      // Filter sales by date range
-      const filteredSales = salesList.filter(sale => {
-        const saleDate = sale.data.split('T')[0];
-        return saleDate >= dataInicio && saleDate <= dataFim;
-      });
+      // Como o backend já filtra pela data, usamos a lista direta
+      setAllSales(salesList);
       
-      setRecentSales(filteredSales.slice(-10).reverse());
     } catch (error) {
       console.error('Erro ao carregar relatórios:', error);
     } finally {
@@ -109,19 +106,19 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
   return (
     <div className="space-y-6" data-testid="reports-page">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
           <p className="text-gray-500 mt-1">Análise de vendas e desempenho</p>
         </div>
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-3 items-center bg-white p-2 rounded-lg border shadow-sm">
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700">De:</label>
             <input
               type="date"
               value={dataInicio}
               onChange={(e) => setDataInicio(e.target.value)}
-              className="px-3 py-2 border rounded-md"
+              className="px-2 py-1 border rounded-md text-sm"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -130,7 +127,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
               type="date"
               value={dataFim}
               onChange={(e) => setDataFim(e.target.value)}
-              className="px-3 py-2 border rounded-md"
+              className="px-2 py-1 border rounded-md text-sm"
             />
           </div>
         </div>
@@ -264,77 +261,89 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
         </CardContent>
       </Card>
 
-      {/* Recent Sales */}
+      {/* Sales History List (Com Scroll) */}
       <Card>
         <CardHeader>
-          <CardTitle>Últimas Vendas</CardTitle>
+          <CardTitle>Histórico de Vendas ({allSales.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {recentSales.map((sale) => (
-              <div key={sale.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <p className="font-medium text-gray-900">{sale.vendedor}</p>
-                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full">
-                      {sale.modalidade_pagamento}
-                    </span>
-                    {sale.estornada && (
-                      <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1">
-                        <XCircle className="w-3 h-3" />
-                        ESTORNADA
+          {allSales.length > 0 ? (
+            // --- AQUI ESTÁ A TABELA COM SCROLL ---
+            <div className="h-[600px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+              {allSales.map((sale) => (
+                <div key={sale.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-300 transition-colors">
+                  <div className="flex-1 w-full">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <p className="font-bold text-gray-900 text-lg">{sale.vendedor}</p>
+                      
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
+                        {sale.modalidade_pagamento}
                       </span>
-                    )}
-                    {sale.is_troca && (
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-                        Troca
+                      
+                      {sale.estornada && (
+                        <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1 font-bold border border-red-200">
+                          <XCircle className="w-3 h-3" />
+                          ESTORNADA
+                        </span>
+                      )}
+                      {sale.is_troca && (
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full border border-yellow-200 font-medium">
+                          Troca
+                        </span>
+                      )}
+                      {sale.online && (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200">
+                          Online
+                        </span>
+                      )}
+                      {sale.encomenda && (
+                        <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full border border-purple-200">
+                          Encomenda
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-between md:justify-start md:gap-8 mt-2 text-sm text-gray-600">
+                      <span>{formatDate(sale.data)} às {sale.hora}</span>
+                      <span>
+                        {sale.items.length} {sale.items.length === 1 ? 'item' : 'itens'}
                       </span>
-                    )}
-                    {sale.online && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                        Online
-                      </span>
-                    )}
-                    {sale.encomenda && (
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                        Encomenda
-                      </span>
+                      {sale.cliente_nome && (
+                        <span className="font-medium text-gray-800">Cliente: {sale.cliente_nome}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between w-full md:w-auto gap-4 mt-3 md:mt-0">
+                    <div className="text-right">
+                      <p className={`text-xl font-bold ${sale.estornada ? 'text-red-600 line-through decoration-2' : 'text-indigo-600'}`}>
+                        {formatCurrency(sale.total)}
+                      </p>
+                      {sale.parcelas > 1 && (
+                        <p className="text-xs text-gray-500">{sale.parcelas}x {formatCurrency(sale.total / sale.parcelas)}</p>
+                      )}
+                    </div>
+                    
+                    {canEstornar && !sale.estornada && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEstornar(sale.id, sale)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200"
+                        title="Estornar venda (cancelar)"
+                      >
+                        <AlertTriangle className="w-4 h-4 mr-1" />
+                        Estornar
+                      </Button>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {formatDate(sale.data)} às {sale.hora}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {sale.items.length} {sale.items.length === 1 ? 'item' : 'itens'}
-                  </p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className={`text-lg font-bold ${sale.estornada ? 'text-red-600 line-through' : 'text-indigo-600'}`}>
-                      {formatCurrency(sale.total)}
-                    </p>
-                    {sale.parcelas > 1 && (
-                      <p className="text-xs text-gray-500">{sale.parcelas}x {formatCurrency(sale.total / sale.parcelas)}</p>
-                    )}
-                  </div>
-                  {canEstornar && !sale.estornada && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEstornar(sale.id, sale)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      title="Estornar venda"
-                    >
-                      <AlertTriangle className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          {recentSales.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              Nenhuma venda registrada
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-dashed">
+              <p>Nenhuma venda registrada neste período.</p>
+              <p className="text-sm mt-1">Tente mudar as datas no topo da página.</p>
             </div>
           )}
         </CardContent>
