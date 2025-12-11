@@ -4,14 +4,14 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useFilial } from '@/context/FilialContext';
 import { useToast } from '@/components/ui/use-toast';
-import { FileText, Download, Calendar, XCircle, AlertTriangle } from 'lucide-react';
+import { FileText, Download, Calendar, XCircle, AlertTriangle, DollarSign, CreditCard, Smartphone, Wallet } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '@/lib/api';
 
 export default function Reports() {
   const [salesByVendor, setSalesByVendor] = useState([]);
   const [inventoryValue, setInventoryValue] = useState(null);
-  const [allSales, setAllSales] = useState([]); // Renomeado de recentSales para allSales
+  const [allSales, setAllSales] = useState([]);
   
   // Date range - default to current month
   const now = new Date();
@@ -37,25 +37,27 @@ export default function Reports() {
     if (!selectedFilial) return;
     
     try {
+      setLoading(true);
       const filialParam = `filial_id=${selectedFilial.id}`;
-      // Define o final do dia para pegar todas as vendas da data final
       const fimDoDia = `${dataFim}T23:59:59`;
       
       const [salesData, inventoryData, salesList] = await Promise.all([
         api.get(`/reports/sales-by-vendor?data_inicio=${dataInicio}&data_fim=${dataFim}&${filialParam}`).then(r => r.data),
         api.get(`/reports/inventory-value?${filialParam}`).then(r => r.data),
-        // --- NOVA BUSCA: Filtra por data no backend e pede até 5000 itens ---
         api.get(`/sales?${filialParam}&data_inicio=${dataInicio}&data_fim=${fimDoDia}&limit=5000`).then(r => r.data),
       ]);
 
       setSalesByVendor(salesData);
       setInventoryValue(inventoryData);
-      
-      // Como o backend já filtra pela data, usamos a lista direta
       setAllSales(salesList);
       
     } catch (error) {
       console.error('Erro ao carregar relatórios:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível carregar os dados.',
+      });
     } finally {
       setLoading(false);
     }
@@ -80,7 +82,6 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
         title: 'Venda estornada com sucesso!',
         description: `${response.data.produtos_devolvidos} produtos devolvidos. Valor: ${formatCurrency(response.data.valor_estornado)}`,
       });
-      // Recarregar todos os dados para atualizar dashboard e relatórios
       loadReports();
     } catch (error) {
       toast({
@@ -90,6 +91,26 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
       });
     }
   };
+
+  // --- CÁLCULO DOS TOTAIS POR PAGAMENTO ---
+  const paymentTotals = allSales.reduce((acc, sale) => {
+    // Ignora estornos e trocas (que não geram caixa)
+    if (sale.estornada || sale.is_troca) return acc;
+
+    if (sale.modalidade_pagamento === 'Misto' && sale.pagamentos) {
+      // Se for misto, soma cada parcela individualmente
+      sale.pagamentos.forEach(p => {
+        const mode = p.modalidade;
+        acc[mode] = (acc[mode] || 0) + p.valor;
+      });
+    } else {
+      // Se for único, soma o total na modalidade
+      const mode = sale.modalidade_pagamento;
+      acc[mode] = (acc[mode] || 0) + sale.total;
+    }
+    return acc;
+  }, { Dinheiro: 0, Pix: 0, Cartao: 0, Credito: 0 });
+  // ----------------------------------------
 
   if (loading) {
     return (
@@ -171,6 +192,54 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
         </Card>
       </div>
 
+      {/* --- NOVA SEÇÃO: DETALHAMENTO POR PAGAMENTO --- */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-green-50 border-green-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-green-800 flex items-center gap-2">
+              <DollarSign className="w-4 h-4" /> Dinheiro
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-green-700">{formatCurrency(paymentTotals.Dinheiro || 0)}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-blue-50 border-blue-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-blue-800 flex items-center gap-2">
+              <Smartphone className="w-4 h-4" /> Pix
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-blue-700">{formatCurrency(paymentTotals.Pix || 0)}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-purple-50 border-purple-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-purple-800 flex items-center gap-2">
+              <CreditCard className="w-4 h-4" /> Cartão
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-purple-700">{formatCurrency(paymentTotals.Cartao || 0)}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-orange-50 border-orange-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-orange-800 flex items-center gap-2">
+              <Wallet className="w-4 h-4" /> Crédito (Fiado)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-orange-700">{formatCurrency(paymentTotals.Credito || 0)}</div>
+          </CardContent>
+        </Card>
+      </div>
+      {/* ----------------------------------------------- */}
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sales by Vendor */}
@@ -185,16 +254,13 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="_id" />
                   <YAxis />
-                  <Tooltip
-                    formatter={(value) => formatCurrency(value)}
-                    labelStyle={{ color: '#000' }}
-                  />
+                  <Tooltip formatter={(value) => formatCurrency(value)} labelStyle={{ color: '#000' }} />
                   <Bar dataKey="total_vendas" fill="#6366f1" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-64 text-gray-500">
-                Nenhuma venda no período selecionado
+                Nenhuma venda no período
               </div>
             )}
           </CardContent>
@@ -218,7 +284,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-64 text-gray-500">
-                Nenhuma venda no período selecionado
+                Nenhuma venda no período
               </div>
             )}
           </CardContent>
@@ -261,14 +327,13 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
         </CardContent>
       </Card>
 
-      {/* Sales History List (Com Scroll) */}
+      {/* Sales History List */}
       <Card>
         <CardHeader>
           <CardTitle>Histórico de Vendas ({allSales.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {allSales.length > 0 ? (
-            // --- AQUI ESTÁ A TABELA COM SCROLL ---
             <div className="h-[600px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
               {allSales.map((sale) => (
                 <div key={sale.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-300 transition-colors">
