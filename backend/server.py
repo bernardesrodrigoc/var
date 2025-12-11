@@ -848,9 +848,12 @@ async def estornar_venda(sale_id: str, current_user: User = Depends(get_current_
         "detalhes": produtos_devolvidos
     }
 
+# --- SUBSTITUIR A FUNÇÃO get_sales INTEIRA POR ESTA ---
 @api_router.get("/sales", response_model=List[Sale])
 async def get_sales(
     filial_id: Optional[str] = None, 
+    data_inicio: Optional[str] = None, 
+    data_fim: Optional[str] = None,    
     skip: int = 0, 
     limit: int = 100, 
     current_user: User = Depends(get_current_active_user)
@@ -859,30 +862,25 @@ async def get_sales(
     if filial_id:
         query["filial_id"] = filial_id
     
-    
-    # --- FILTRO DE DATA (Novo) ---
+    # Lógica de Filtro de Data (Faltava isso!)
     if data_inicio:
-        # Se tiver data, filtramos pelo período
-        # Como a data é salva como String ISO, a comparação de strings funciona
         date_query = {"$gte": data_inicio}
         if data_fim:
             date_query["$lte"] = data_fim
         query["data"] = date_query
         
-        # Se o usuário está filtrando por data, provavelmente quer ver TUDO desse período.
-        # Então aumentamos o limite automaticamente se ele estiver no padrão (100).
+        # Se tem filtro de data, aumentamos o limite para garantir que venha tudo
         if limit == 100:
             limit = 50000 
-    # -----------------------------
+
+    # Busca no banco
+    sales = await db.sales.find(query, {"_id": 0}).sort("data", -1).skip(skip).limit(limit).to_list(limit)
     
-    
-    # Add pagination and sort by date descending (most recent first)
-    sales = await db.sales.find(query, {"_id": 0}).sort("data", -1).skip(skip).limit(min(limit, 500)).to_list(limit)
     for s in sales:
         if isinstance(s.get('data'), str):
             s['data'] = datetime.fromisoformat(s['data'])
     return sales
-
+# ------------------------------------------------------
 @api_router.get("/sales/{sale_id}", response_model=Sale)
 async def get_sale(sale_id: str, current_user: User = Depends(get_current_active_user)):
     sale = await db.sales.find_one({"id": sale_id}, {"_id": 0})
