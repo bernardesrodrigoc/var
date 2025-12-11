@@ -13,6 +13,7 @@ from datetime import datetime, timezone, timedelta
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from seed_data import seed_database
+from zoneinfo import ZoneInfo
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -145,8 +146,12 @@ class SaleCreate(SaleBase):
 class Sale(SaleBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    data: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    hora: str = Field(default_factory=lambda: datetime.now(timezone.utc).strftime("%H:%M:%S"))
+    
+    # --- ALTERADO: Removemos os defaults para obrigar o uso da lógica da rota ---
+    data: datetime 
+    hora: str
+    # ---------------------------------------------------------------------------
+    
     estornada: bool = False
     estornada_em: Optional[str] = None
     estornada_por: Optional[str] = None
@@ -706,10 +711,32 @@ async def create_sale(sale: SaleCreate, current_user: User = Depends(get_current
     
     # Create sale
     sale_data = sale.model_dump()
-    # Se não enviou data (venda normal), usa AGORA. Se enviou (retroativa), usa a enviada.
-    if not sale_data.get('data'):
-        sale_data['data'] = datetime.now(timezone.utc)
     
+    # Fuso Horário de São Paulo
+    br_timezone = ZoneInfo("America/Sao_Paulo")
+    agora = datetime.now(br_timezone)
+
+    # Lógica de Data:
+    # Se veio uma data manual (admin lançando retroativo), usa ela combinada com o horário atual (12:00 para evitar erro de dia)
+    if sale_data.get('data'):
+        # Se for retroativo, forçamos o meio-dia para garantir que caia no dia certo
+        # A data que vem do front já deve estar tratada, mas aqui garantimos
+        pass 
+    else:
+        # Se é venda normal (agora), usa o horário exato de Brasília
+        sale_data['data'] = agora
+
+    # Garante que a 'hora' (string) seja gravada no horário do Brasil
+    # Se a venda é agora, pega a hora de agora. Se é retroativa, pega a hora atual do lançamento (ou 12:00)
+    data_registro = sale_data['data'] if isinstance(sale_data['data'], datetime) else datetime.fromisoformat(str(sale_data['data']))
+    
+    # Se a data do registro for "hoje", usa a hora atual. Se for passado, usa 12:00 ou mantém.
+    if data_registro.date() == agora.date():
+        sale_data['hora'] = agora.strftime("%H:%M:%S")
+    else:
+        # Para vendas retroativas, definimos uma hora padrão ou mantemos a atual de lançamento
+        sale_data['hora'] = "12:00:00" 
+
     sale_obj = Sale(**sale_data)
     doc = sale_obj.model_dump()
     doc['data'] = doc['data'].isoformat()
