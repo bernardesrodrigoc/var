@@ -5,11 +5,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { productsAPI, customersAPI, salesAPI, storeCreditsAPI } from '@/lib/api';
+import { customersAPI, salesAPI, storeCreditsAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { useFilial } from '@/context/FilialContext';
-import { ShoppingCart, Plus, Minus, Trash2, DollarSign, CreditCard, Smartphone, Gift, RefreshCw, User } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, DollarSign, CreditCard, Smartphone, Gift, RefreshCw, User, CalendarIcon } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function SalesAdvanced() {
@@ -21,8 +21,18 @@ export default function SalesAdvanced() {
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
   
+  // --- NOVOS ESTADOS ---
+  // Data da venda (para lançamentos retroativos)
+  const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // Controle do Modal de Preço Manual (Código 0)
+  const [manualPriceOpen, setManualPriceOpen] = useState(false);
+  const [manualPriceValue, setManualPriceValue] = useState('');
+  const [manualProductTemp, setManualProductTemp] = useState(null);
+  // ---------------------
+
   // Payment states
-  const [paymentMode, setPaymentMode] = useState('single'); // 'single' or 'mixed'
+  const [paymentMode, setPaymentMode] = useState('single'); 
   const [singlePayment, setSinglePayment] = useState('Dinheiro');
   const [mixedPayments, setMixedPayments] = useState([
     { modalidade: 'Dinheiro', valor: 0, parcelas: 1 }
@@ -42,6 +52,7 @@ export default function SalesAdvanced() {
   const { toast } = useToast();
   const { selectedFilial } = useFilial();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdminOrManager = user.role === 'admin' || user.role === 'gerente';
   const searchTimeoutRef = useRef(null);
 
   useEffect(() => {
@@ -54,7 +65,6 @@ export default function SalesAdvanced() {
   // Selecionar vendedor automaticamente quando a lista de vendedores for carregada
   useEffect(() => {
     if (vendedores.length > 0 && user.role === 'vendedora') {
-      // Procurar o vendedor atual na lista
       const currentVendedor = vendedores.find(v => v.id === user.id || v.username === user.username);
       if (currentVendedor && !selectedVendedor) {
         setSelectedVendedor(currentVendedor.id);
@@ -75,7 +85,6 @@ export default function SalesAdvanced() {
     try {
       const response = await api.get('/users');
       const allUsers = response.data;
-      // Filtrar apenas vendedores da filial atual
       const vendedoresDaFilial = allUsers.filter(u => 
         u.role === 'vendedora' && u.filial_id === selectedFilial.id && u.active
       );
@@ -87,7 +96,6 @@ export default function SalesAdvanced() {
 
   const loadCustomers = async () => {
     if (!selectedFilial) return;
-    
     try {
       const response = await api.get(`/customers?filial_id=${selectedFilial.id}`);
       setCustomers(response.data);
@@ -113,10 +121,9 @@ export default function SalesAdvanced() {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (value.trim().length >= 1) {
+    if (value.trim().length >= 1) { 
       searchTimeoutRef.current = setTimeout(async () => {
         try {
-          // Buscar produtos da filial atual
           const response = await api.get(`/products/search/${value.trim()}?filial_id=${selectedFilial.id}`);
           setSearchResults(response.data);
           setShowResults(true);
@@ -131,10 +138,42 @@ export default function SalesAdvanced() {
   };
 
   const handleSelectProduct = (product) => {
-    addToCart(product);
+    // Lógica do Código 0 (Manual)
+    if (product.codigo === '0') {
+      setManualProductTemp(product);
+      setManualPriceValue('');
+      setManualPriceOpen(true);
+    } else {
+      addToCart(product);
+    }
     setBarcodeInput('');
     setSearchResults([]);
     setShowResults(false);
+  };
+
+  // Função para confirmar o preço manual
+  const confirmManualPrice = () => {
+    if (!manualProductTemp) return;
+    const price = parseFloat(manualPriceValue);
+    
+    if (isNaN(price) || price <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Valor inválido',
+        description: 'Insira um valor maior que zero.',
+      });
+      return;
+    }
+
+    // Cria uma cópia do produto com o preço manual definido
+    const productWithPrice = {
+      ...manualProductTemp,
+      preco_venda: price
+    };
+
+    addToCart(productWithPrice);
+    setManualPriceOpen(false);
+    setManualProductTemp(null);
   };
 
   const handleBarcodeSubmit = async (e) => {
@@ -142,11 +181,9 @@ export default function SalesAdvanced() {
     if (!barcodeInput.trim()) return;
 
     try {
-      // Buscar produto por código de barras na filial atual
       const response = await api.get(`/products/barcode/${barcodeInput.trim()}`);
       const product = response.data;
       
-      // Verificar se o produto pertence à filial atual
       if (product.filial_id !== selectedFilial.id) {
         toast({
           variant: 'destructive',
@@ -157,7 +194,15 @@ export default function SalesAdvanced() {
         return;
       }
       
-      addToCart(product);
+      // Lógica do Código 0 também no Enter
+      if (product.codigo === '0') {
+        setManualProductTemp(product);
+        setManualPriceValue('');
+        setManualPriceOpen(true);
+      } else {
+        addToCart(product);
+      }
+
       setBarcodeInput('');
       setSearchResults([]);
       setShowResults(false);
@@ -165,20 +210,29 @@ export default function SalesAdvanced() {
       toast({
         variant: 'destructive',
         title: 'Produto não encontrado',
-        description: `Código: ${barcodeInput}`,
+        description: `Código: ${barcodeInput}. Cadastre o produto 0 para venda manual.`,
       });
       setBarcodeInput('');
     }
   };
 
   const addToCart = (product) => {
-    const existingItem = cart.find((item) => item.product_id === product.id);
+    // Cria um ID único para o item no carrinho.
+    // Se for manual (código 0), gera um ID aleatório para permitir múltiplos itens manuais com preços diferentes.
+    // Se for normal, usa o ID do produto para agrupar quantidades.
+    const isManual = product.codigo === '0';
+    const cartItemId = isManual ? `manual-${Date.now()}-${Math.random()}` : product.id;
+
+    // Só tenta agrupar se NÃO for manual
+    const existingItem = !isManual ? cart.find((item) => item.product_id === product.id) : null;
+    
     if (existingItem) {
       updateQuantity(product.id, existingItem.quantidade + 1);
     } else {
       setCart([
         ...cart,
         {
+          cart_item_id: cartItemId, // ID interno do carrinho
           product_id: product.id,
           codigo: product.codigo,
           descricao: product.descricao,
@@ -191,22 +245,30 @@ export default function SalesAdvanced() {
     }
   };
 
-  const updateQuantity = (productId, newQuantity) => {
+  const updateQuantity = (identifier, newQuantity, isCartItemId = false) => {
+    // identifier pode ser o product_id (normal) ou cart_item_id (manual)
+    
     if (newQuantity <= 0) {
-      removeFromCart(productId);
+      removeFromCart(identifier, isCartItemId);
       return;
     }
+    
     setCart(
-      cart.map((item) =>
-        item.product_id === productId
+      cart.map((item) => {
+        // Verifica se é o item correto
+        const match = isCartItemId ? item.cart_item_id === identifier : item.product_id === identifier;
+        
+        return match
           ? { ...item, quantidade: newQuantity, subtotal: item.preco_venda * newQuantity }
-          : item
-      )
+          : item;
+      })
     );
   };
 
-  const removeFromCart = (productId) => {
-    setCart(cart.filter((item) => item.product_id !== productId));
+  const removeFromCart = (identifier, isCartItemId = false) => {
+    setCart(cart.filter((item) => {
+        return isCartItemId ? item.cart_item_id !== identifier : item.product_id !== identifier;
+    }));
   };
 
   const calculateSubtotal = () => {
@@ -251,7 +313,6 @@ export default function SalesAdvanced() {
       return;
     }
 
-    // Validar seleção de vendedor (obrigatório para todos)
     if (!selectedVendedor) {
       toast({
         variant: 'destructive',
@@ -278,7 +339,6 @@ export default function SalesAdvanced() {
 
     setProcessing(true);
     try {
-      // Obter nome do vendedor selecionado
       const vendedorSelecionado = vendedores.find(v => v.id === selectedVendedor || v.username === selectedVendedor);
       const vendedorNome = vendedorSelecionado ? vendedorSelecionado.full_name : user.full_name;
       
@@ -296,17 +356,19 @@ export default function SalesAdvanced() {
         encomenda: isEncomenda,
         is_troca: isTroca,
         filial_id: selectedFilial.id,
+        // --- NOVA DATA (RETROATIVA) ---
+        // Se for admin/gerente, usa a data personalizada. Se não, nulo (backend usa data atual)
+        data: isAdminOrManager ? new Date(customDate).toISOString() : null
+        // ------------------------------
       };
 
       const sale = await salesAPI.create(saleData);
 
-      // If using store credit, deduct from customer
       if (useStoreCredit && customerData && storeCreditAmount > 0) {
         const newCredit = customerData.credito_loja - storeCreditAmount;
         await customersAPI.update(selectedCustomer, { ...customerData, credito_loja: newCredit });
       }
 
-      // If it's a troca (exchange), create store credit
       if (isTroca && selectedCustomer !== 'none') {
         await storeCreditsAPI.create({
           customer_id: selectedCustomer,
@@ -327,7 +389,6 @@ export default function SalesAdvanced() {
         });
       }
 
-      // Reset form
       resetForm();
     } catch (error) {
       toast({
@@ -354,6 +415,7 @@ export default function SalesAdvanced() {
     setSinglePayment('Dinheiro');
     setMixedPayments([{ modalidade: 'Dinheiro', valor: 0, parcelas: 1 }]);
     setInstallments(1);
+    // Não resetamos a Data Personalizada de propósito, para facilitar lançamentos em série do mesmo dia
   };
 
   const total = calculateTotal();
@@ -371,7 +433,6 @@ export default function SalesAdvanced() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Barcode Scanner & Product List */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Barcode Scanner with Autocomplete */}
           <Card>
             <CardHeader>
               <CardTitle>Escanear Código de Barras</CardTitle>
@@ -381,7 +442,7 @@ export default function SalesAdvanced() {
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
                     <Input
-                      placeholder="Digite ou escaneie o código..."
+                      placeholder="Digite o código (Use '0' para manual)..."
                       value={barcodeInput}
                       onChange={(e) => handleBarcodeChange(e.target.value)}
                       onBlur={() => setTimeout(() => setShowResults(false), 200)}
@@ -397,7 +458,10 @@ export default function SalesAdvanced() {
                         {searchResults.map((product) => (
                           <div
                             key={product.id}
-                            onClick={() => handleSelectProduct(product)}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleSelectProduct(product);
+                            }}
                             className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
                           >
                             <div className="flex justify-between items-start">
@@ -438,7 +502,8 @@ export default function SalesAdvanced() {
                 <div className="space-y-3">
                   {cart.map((item) => (
                     <div
-                      key={item.product_id}
+                      // Usa cart_item_id para itens manuais, ou product_id para normais
+                      key={item.cart_item_id || item.product_id}
                       className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"
                       data-testid={`cart-item-${item.codigo}`}
                     >
@@ -453,7 +518,7 @@ export default function SalesAdvanced() {
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => updateQuantity(item.product_id, item.quantidade - 1)}
+                          onClick={() => updateQuantity(item.cart_item_id || item.product_id, item.quantidade - 1, !!item.cart_item_id)}
                         >
                           <Minus className="w-4 h-4" />
                         </Button>
@@ -461,7 +526,7 @@ export default function SalesAdvanced() {
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => updateQuantity(item.product_id, item.quantidade + 1)}
+                          onClick={() => updateQuantity(item.cart_item_id || item.product_id, item.quantidade + 1, !!item.cart_item_id)}
                         >
                           <Plus className="w-4 h-4" />
                         </Button>
@@ -472,7 +537,7 @@ export default function SalesAdvanced() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => removeFromCart(item.product_id)}
+                        onClick={() => removeFromCart(item.cart_item_id || item.product_id, !!item.cart_item_id)}
                       >
                         <Trash2 className="w-4 h-4 text-red-600" />
                       </Button>
@@ -491,7 +556,28 @@ export default function SalesAdvanced() {
               <CardTitle>Finalizar Venda</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Vendedor Selector - todas as vendedoras da filial podem usar */}
+              
+              {/* --- DATA DA VENDA (APENAS ADMIN/GERENTE) --- */}
+              {isAdminOrManager && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg space-y-2">
+                  <Label className="flex items-center gap-2 text-yellow-800 font-bold">
+                    <CalendarIcon className="w-4 h-4" />
+                    Data da Venda (Retroativa)
+                  </Label>
+                  <Input 
+                    type="date" 
+                    value={customDate} 
+                    onChange={(e) => setCustomDate(e.target.value)}
+                    className="bg-white"
+                  />
+                  <p className="text-xs text-yellow-700">
+                    Use para lançar vendas passadas. Cuidado para não errar o dia!
+                  </p>
+                </div>
+              )}
+              {/* ------------------------------------------- */}
+
+              {/* Vendedor Selector */}
               <div className="space-y-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
                 <Label className="flex items-center gap-2 text-indigo-900">
                   <User className="w-4 h-4" />
@@ -529,7 +615,7 @@ export default function SalesAdvanced() {
                 </Select>
               </div>
 
-              {/* Store Credit */}
+              {/* Store Credit Logic */}
               {customerData && customerData.credito_loja > 0 && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2">
                   <div className="flex items-center justify-between">
@@ -589,22 +675,13 @@ export default function SalesAdvanced() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Dinheiro">
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="w-4 h-4" />
-                            Dinheiro
-                          </div>
+                          <div className="flex items-center gap-2"><DollarSign className="w-4 h-4" /> Dinheiro</div>
                         </SelectItem>
                         <SelectItem value="Cartao">
-                          <div className="flex items-center gap-2">
-                            <CreditCard className="w-4 h-4" />
-                            Cartão
-                          </div>
+                          <div className="flex items-center gap-2"><CreditCard className="w-4 h-4" /> Cartão</div>
                         </SelectItem>
                         <SelectItem value="Pix">
-                          <div className="flex items-center gap-2">
-                            <Smartphone className="w-4 h-4" />
-                            Pix
-                          </div>
+                          <div className="flex items-center gap-2"><Smartphone className="w-4 h-4" /> Pix</div>
                         </SelectItem>
                         <SelectItem value="Credito">Crédito da Loja</SelectItem>
                       </SelectContent>
@@ -615,9 +692,7 @@ export default function SalesAdvanced() {
                     <div className="space-y-2">
                       <Label>Parcelas</Label>
                       <Select value={installments.toString()} onValueChange={(v) => setInstallments(parseInt(v))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
                             <SelectItem key={n} value={n.toString()}>
@@ -660,9 +735,7 @@ export default function SalesAdvanced() {
                         value={payment.modalidade}
                         onValueChange={(v) => updateMixedPayment(index, 'modalidade', v)}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Dinheiro">Dinheiro</SelectItem>
                           <SelectItem value="Cartao">Cartão</SelectItem>
@@ -677,23 +750,6 @@ export default function SalesAdvanced() {
                         value={payment.valor}
                         onChange={(e) => updateMixedPayment(index, 'valor', parseFloat(e.target.value) || 0)}
                       />
-                      {(payment.modalidade === 'Cartao' || payment.modalidade === 'Credito') && (
-                        <Select
-                          value={payment.parcelas.toString()}
-                          onValueChange={(v) => updateMixedPayment(index, 'parcelas', parseInt(v))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Parcelas" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[1, 2, 3, 4, 5, 6].map((n) => (
-                              <SelectItem key={n} value={n.toString()}>
-                                {n}x
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
                     </div>
                   ))}
                   <div className="p-3 bg-gray-100 rounded-lg">
@@ -761,24 +817,8 @@ export default function SalesAdvanced() {
                 </label>
               </div>
 
-              {/* Total */}
+              {/* Total Final */}
               <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span>{formatCurrency(subtotal)}</span>
-                </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>Desconto:</span>
-                    <span>- {formatCurrency(discount)}</span>
-                  </div>
-                )}
-                {useStoreCredit && storeCreditAmount > 0 && (
-                  <div className="flex justify-between text-sm text-purple-600">
-                    <span>Crédito da Loja:</span>
-                    <span>- {formatCurrency(storeCreditAmount)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-2xl font-bold">
                   <span>Total:</span>
                   <span className="text-indigo-600">{formatCurrency(total)}</span>
@@ -798,6 +838,32 @@ export default function SalesAdvanced() {
           </Card>
         </div>
       </div>
+
+      {/* Manual Price Dialog (Para o Código 0) */}
+      <Dialog open={manualPriceOpen} onOpenChange={setManualPriceOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Venda Manual / Ajuste</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Valor do Produto (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={manualPriceValue}
+                onChange={(e) => setManualPriceValue(e.target.value)}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualPriceOpen(false)}>Cancelar</Button>
+            <Button onClick={confirmManualPrice}>Confirmar Valor</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
