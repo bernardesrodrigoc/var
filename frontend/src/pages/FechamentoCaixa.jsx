@@ -45,12 +45,21 @@ export default function FechamentoCaixa() {
         pagamentos: fechamento.pagamentos || []
       });
       
-      // Carregar vendas detalhadas separadamente
+      
+
+     // Carregar vendas detalhadas separadamente
       const hoje = new Date().toISOString().split('T')[0];
-      const salesResponse = await api.get(`/sales?filial_id=${selectedFilial.id}`);
+      const fimDoDia = `${hoje}T23:59:59`; // Define o final do dia para pegar tudo
+      
+      // AQUI A MÁGICA: Pede ao servidor apenas vendas entre "hoje cedo" e "hoje a noite"
+      // Usamos limit=5000 para garantir que venha tudo, mesmo em dias muito movimentados
+      const salesResponse = await api.get(
+        `/sales?filial_id=${selectedFilial.id}&data_inicio=${hoje}&data_fim=${fimDoDia}&limit=5000`
+      );
+      
+      // O filtro agora é bem mais simples, só para tirar estornos e trocas
       const vendasHoje = salesResponse.data.filter(sale => {
-        const saleDate = new Date(sale.data).toISOString().split('T')[0];
-        return saleDate === hoje && !sale.estornada && !sale.is_troca;
+        return !sale.estornada && !sale.is_troca;
       });
       
       setVendasDetalhadas(vendasHoje);
