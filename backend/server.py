@@ -856,6 +856,23 @@ async def get_sales(
     if filial_id:
         query["filial_id"] = filial_id
     
+    
+    # --- FILTRO DE DATA (Novo) ---
+    if data_inicio:
+        # Se tiver data, filtramos pelo período
+        # Como a data é salva como String ISO, a comparação de strings funciona
+        date_query = {"$gte": data_inicio}
+        if data_fim:
+            date_query["$lte"] = data_fim
+        query["data"] = date_query
+        
+        # Se o usuário está filtrando por data, provavelmente quer ver TUDO desse período.
+        # Então aumentamos o limite automaticamente se ele estiver no padrão (100).
+        if limit == 100:
+            limit = 50000 
+    # -----------------------------
+    
+    
     # Add pagination and sort by date descending (most recent first)
     sales = await db.sales.find(query, {"_id": 0}).sort("data", -1).skip(skip).limit(min(limit, 500)).to_list(limit)
     for s in sales:
