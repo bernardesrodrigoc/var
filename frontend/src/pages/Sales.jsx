@@ -358,7 +358,9 @@ export default function SalesAdvanced() {
         filial_id: selectedFilial.id,
         // --- NOVA DATA (RETROATIVA) ---
         // Se for admin/gerente, usa a data personalizada. Se não, nulo (backend usa data atual)
-        data: isAdminOrManager ? new Date(customDate).toISOString() : null
+       
+        data: isAdminOrManager ? new Date(`${customDate}T12:00:00`).toISOString() : null,
+       
         // ------------------------------
       };
 
