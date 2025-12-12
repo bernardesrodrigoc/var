@@ -182,7 +182,17 @@ export default function MyPerformance() {
                   );
                 })
             )}
+{/* Barra Final: Meta Global (100%) */}
+            <div className="pt-4 border-t border-gray-100 mt-4">
+              
+              
+            </div>
 
+          </div>
+        </CardContent>
+      </Card>
+      
+    </div>
             
   );
 }
