@@ -6,10 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// Adicionei o Checkbox nas importações abaixo
+import { Checkbox } from '@/components/ui/checkbox'; 
 import { authAPI, usersAPI, reportsAPI, goalsAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Edit, Trash2, User, Target, TrendingUp, Award } from 'lucide-react';
+import { Plus, Edit, Trash2, User, Target, TrendingUp, Award, Building2 } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function ManageUsers() {
@@ -27,6 +29,7 @@ export default function ManageUsers() {
     meta_mensal: 0,
     active: true,
     filial_id: '',
+    filiais_acesso: [], // Novo campo para múltiplas filiais
   });
   const { toast } = useToast();
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -98,6 +101,10 @@ export default function ManageUsers() {
         meta_mensal: user.meta_mensal || 0,
         active: user.active,
         filial_id: user.filial_id || '',
+        // Garante que é um array, e se estiver vazio, coloca a filial principal
+        filiais_acesso: user.filiais_acesso && user.filiais_acesso.length > 0 
+          ? user.filiais_acesso 
+          : (user.filial_id ? [user.filial_id] : []),
       });
     } else {
       setEditingUser(null);
@@ -109,19 +116,42 @@ export default function ManageUsers() {
         meta_mensal: 0,
         active: true,
         filial_id: '',
+        filiais_acesso: [],
       });
     }
     setDialogOpen(true);
   };
 
+  // Função para gerenciar os checkboxes das filiais
+  const toggleFilialAcesso = (filialId, checked) => {
+    setFormData(prev => {
+      let novosAcessos = [...prev.filiais_acesso];
+      if (checked) {
+        if (!novosAcessos.includes(filialId)) {
+          novosAcessos.push(filialId);
+        }
+      } else {
+        novosAcessos = novosAcessos.filter(id => id !== filialId);
+      }
+      return { ...prev, filiais_acesso: novosAcessos };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validação básica: Filial principal deve estar na lista de acesso
+    const dadosParaEnviar = { ...formData };
+    if (dadosParaEnviar.filial_id && !dadosParaEnviar.filiais_acesso.includes(dadosParaEnviar.filial_id)) {
+      dadosParaEnviar.filiais_acesso.push(dadosParaEnviar.filial_id);
+    }
+
     try {
       if (editingUser) {
-        await usersAPI.update(editingUser.id, formData);
+        await usersAPI.update(editingUser.id, dadosParaEnviar);
         toast({ title: 'Usuário atualizado com sucesso!' });
       } else {
-        await authAPI.register(formData);
+        await authAPI.register(dadosParaEnviar);
         toast({ title: 'Usuário criado com sucesso!' });
       }
       setDialogOpen(false);
@@ -167,7 +197,7 @@ export default function ManageUsers() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Gestão de Vendedoras</h1>
-          <p className="text-gray-500 mt-1">Gerencie usuários e metas mensais</p>
+          <p className="text-gray-500 mt-1">Gerencie usuários, permissões e metas</p>
         </div>
         <Button onClick={() => handleOpenDialog()} data-testid="add-user-button">
           <Plus className="w-4 h-4 mr-2" />
@@ -238,6 +268,7 @@ export default function ManageUsers() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Usuário</TableHead>
                 <TableHead>Função</TableHead>
+                <TableHead>Filiais</TableHead>
                 <TableHead className="text-right">Meta Mensal</TableHead>
                 <TableHead className="text-right">Vendas Mês</TableHead>
                 <TableHead className="text-right">% Meta</TableHead>
@@ -248,6 +279,8 @@ export default function ManageUsers() {
             <TableBody>
               {users.map((user) => {
                 const perf = performanceData[user.id] || { vendas: 0, percentual: 0 };
+                // Contar quantas filiais a pessoa tem acesso
+                const numFiliais = user.filiais_acesso?.length || (user.filial_id ? 1 : 0);
                 
                 return (
                   <TableRow key={user.id} data-testid={`user-row-${user.username}`}>
@@ -268,6 +301,12 @@ export default function ManageUsers() {
                       }`}>
                         {user.role}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm text-gray-600">
+                        <Building2 className="w-3 h-3" />
+                        {numFiliais === 1 ? '1 Filial' : `${numFiliais} Filiais`}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {user.role === 'vendedora' ? formatCurrency(user.meta_mensal || 0) : '-'}
@@ -326,7 +365,7 @@ export default function ManageUsers() {
 
       {/* User Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingUser ? 'Editar Usuário' : 'Novo Usuário'}
@@ -375,21 +414,63 @@ export default function ManageUsers() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="filial">Filial *</Label>
-              <Select value={formData.filial_id} onValueChange={(v) => setFormData({ ...formData, filial_id: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma filial" />
-                </SelectTrigger>
-                <SelectContent>
+            
+            {/* SELEÇÃO DE FILIAIS */}
+            <div className="space-y-4 border p-4 rounded-md bg-gray-50">
+              <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                <Building2 className="w-4 h-4" />
+                Atribuição de Filiais
+              </h3>
+              
+              <div className="space-y-2">
+                <Label htmlFor="filial">Filial Principal (Lotação) *</Label>
+                <Select 
+                  value={formData.filial_id} 
+                  onValueChange={(v) => {
+                    setFormData({ ...formData, filial_id: v });
+                    // Garante que a principal também esteja na lista de acesso
+                    if (!formData.filiais_acesso.includes(v)) {
+                      toggleFilialAcesso(v, true);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Selecione a filial principal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filiais.map((filial) => (
+                      <SelectItem key={filial.id} value={filial.id}>
+                        {filial.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Permitir acesso também a:</Label>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
                   {filiais.map((filial) => (
-                    <SelectItem key={filial.id} value={filial.id}>
-                      {filial.nome}
-                    </SelectItem>
+                    <div key={filial.id} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`acesso-${filial.id}`} 
+                        checked={formData.filiais_acesso.includes(filial.id)}
+                        onCheckedChange={(checked) => toggleFilialAcesso(filial.id, checked)}
+                        // Desabilita desmarcar a filial principal para evitar erros
+                        disabled={filial.id === formData.filial_id}
+                      />
+                      <label
+                        htmlFor={`acesso-${filial.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {filial.nome} {filial.id === formData.filial_id && '(Principal)'}
+                      </label>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              </div>
             </div>
+
             {formData.role === 'vendedora' && (
               <div className="space-y-2">
                 <Label htmlFor="meta_mensal">
