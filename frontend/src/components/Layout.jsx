@@ -76,7 +76,8 @@ export default function Layout() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-1">
+          {/* ADICIONADO: overflow-y-auto para permitir rolagem apenas nos links */}
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => (
               <NavLink
                 key={item.name}
