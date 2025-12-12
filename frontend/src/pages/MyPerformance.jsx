@@ -183,26 +183,6 @@ export default function MyPerformance() {
                 })
             )}
 
-            {/* Barra Final: Meta Global (100%) */}
-            <div className="pt-4 border-t border-gray-100 mt-4">
-              <div className="flex justify-between items-end mb-2">
-                <span className="text-sm font-bold text-gray-900">Meta Final (100%)</span>
-                <span className="text-xs font-medium text-gray-600">
-                  {(percentualAtingido || 0).toFixed(1)}% atingido
-                </span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gray-800 transition-all duration-500"
-                  style={{ width: `${Math.min((percentualAtingido || 0), 100)}%` }}
-                ></div>
-              </div>
-            </div>
-
-          </div>
-        </CardContent>
-      </Card>
-      
-    </div>
+            
   );
 }
