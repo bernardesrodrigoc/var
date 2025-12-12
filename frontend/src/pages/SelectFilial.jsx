@@ -24,34 +24,32 @@ export default function SelectFilial() {
       const response = await api.get('/filiais');
       const allFiliais = response.data;
       
-      // Filtrar filiais baseado no perfil do usuário
       let availableFiliais = allFiliais;
       
-      // Admin vê todas as filiais
+      // Admin vê todas
       if (currentUser.role === 'admin') {
         availableFiliais = allFiliais;
-      }
-      // Gerentes veem suas filiais de acesso (se definido) ou sua filial principal
-      else if (currentUser.role === 'gerente') {
-        if (currentUser.filiais_acesso && currentUser.filiais_acesso.length > 0) {
-          availableFiliais = allFiliais.filter(f => currentUser.filiais_acesso.includes(f.id));
-        } else if (currentUser.filial_id) {
-          availableFiliais = allFiliais.filter(f => f.id === currentUser.filial_id);
+      } 
+      // Gerentes E Vendedoras seguem a mesma regra de acesso múltiplo
+      else {
+        // Lista de IDs permitidos: Pega o array de acesso OU cria um array com a filial principal
+        let idsPermitidos = currentUser.filiais_acesso || [];
+        
+        // Garante que a filial principal (se existir) esteja na lista
+        if (currentUser.filial_id && !idsPermitidos.includes(currentUser.filial_id)) {
+          idsPermitidos.push(currentUser.filial_id);
         }
-      }
-      // Vendedoras veem APENAS sua filial atribuída
-      else if (currentUser.role === 'vendedora') {
-        if (currentUser.filial_id) {
-          availableFiliais = allFiliais.filter(f => f.id === currentUser.filial_id);
-        } else {
-          // Se vendedora não tem filial atribuída, não pode acessar nenhuma
-          availableFiliais = [];
-        }
+
+        // Filtra as filiais que estão na lista de IDs permitidos
+        availableFiliais = allFiliais.filter(f => idsPermitidos.includes(f.id));
       }
       
+      // Apenas filiais ativas
+      availableFiliais = availableFiliais.filter(f => f.ativa);
+
       setFiliais(availableFiliais);
       
-      // Se o usuário tem apenas uma filial disponível, selecionar automaticamente
+      // Se tiver apenas uma, entra direto (opcional, pode remover se quiser forçar a escolha sempre)
       if (availableFiliais.length === 1) {
         handleSelectFilial(availableFiliais[0]);
       }
@@ -65,7 +63,7 @@ export default function SelectFilial() {
       setLoading(false);
     }
   };
-
+  
   const handleSelectFilial = (filial) => {
     selectFilial(filial);
     toast({
