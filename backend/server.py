@@ -96,6 +96,7 @@ class CustomerBase(BaseModel):
     limite_credito: float = 0.0
     saldo_devedor: float = 0.0  # Dívida de compras a prazo
     credito_loja: float = 0.0  # Crédito de trocas
+    data_ultimo_credito: Optional[datetime] = None
     filial_id: Optional[str] = None  # Cliente pode ser associado a uma filial
 
 class CustomerCreate(CustomerBase):
@@ -988,7 +989,9 @@ async def create_store_credit(credit: StoreCreditCreate, current_user: User = De
         new_credit = customer.get('credito_loja', 0) + credit.valor
         await db.customers.update_one(
             {"id": credit.customer_id},
-            {"$set": {"credito_loja": new_credit}}
+            {"$set": {"credito_loja": new_credit,
+              # ADICIONE ISTO: Atualiza a data do crédito para HOJE
+             "data_ultimo_credito": datetime.now(timezone.utc).isoformat()}}
         )
     
     return credit_obj
