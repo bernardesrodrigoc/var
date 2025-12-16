@@ -9,7 +9,7 @@ import { customersAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { useFilial } from '@/context/FilialContext';
-import { Plus, Edit, Trash2, Search, User, History, DollarSign, ShoppingBag } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, User, History, DollarSign, ShoppingBag, AlertTriangle, Eraser } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function Customers() {
@@ -41,15 +41,18 @@ export default function Customers() {
     endereco: '',
     limite_credito: 0,
     saldo_devedor: 0,
-    credito_loja: 0, // Adicionado campo de crédito loja
+    credito_loja: 0,
+    filial_id: ''
   });
   
   const { toast } = useToast();
   const { selectedFilial } = useFilial();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const canDelete = user.role === 'admin' || user.role === 'gerente';
-  // Permissão para editar saldo apenas se for admin/gerente
   const canEditBalance = user.role === 'admin' || user.role === 'gerente';
+
+  // Configuração de dias para alerta
+  const DIAS_PARA_EXPIRAR = 30;
 
   useEffect(() => {
     if (selectedFilial) {
@@ -83,6 +86,19 @@ export default function Customers() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Função para verificar se o crédito está "vencido" para alerta
+  const checkCreditExpiration = (customer) => {
+    if (!customer.credito_loja || customer.credito_loja <= 0) return false;
+    if (!customer.data_ultimo_credito) return false; // Se não tem data, assumimos que é ok ou antigo demais (opcional)
+
+    const ultimaData = new Date(customer.data_ultimo_credito);
+    const hoje = new Date();
+    const diferencaTempo = Math.abs(hoje - ultimaData);
+    const diferencaDias = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
+
+    return diferencaDias > DIAS_PARA_EXPIRAR;
   };
 
   const handleOpenDialog = (customer = null) => {
@@ -144,6 +160,27 @@ export default function Customers() {
         variant: 'destructive',
         title: 'Erro',
         description: 'Não foi possível excluir o cliente',
+      });
+    }
+  };
+
+  // NOVA FUNÇÃO: Expirar Créditos
+  const handleExpirarCreditos = async (customer) => {
+    if (!window.confirm(`Tem certeza que deseja ZERAR os créditos de ${customer.nome}? Essa ação não pode ser desfeita.`)) return;
+
+    try {
+      await api.post(`/customers/${customer.id}/expirar-credito`);
+      toast({
+        title: 'Créditos expirados',
+        description: `O saldo de crédito foi zerado.`,
+      });
+      setDialogOpen(false);
+      loadCustomers();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível expirar os créditos',
       });
     }
   };
@@ -290,88 +327,103 @@ export default function Customers() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCustomers.map((customer) => (
-                <TableRow key={customer.id} data-testid={`customer-row-${customer.nome}`}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-indigo-600" />
+              {filteredCustomers.map((customer) => {
+                const isCreditExpired = checkCreditExpiration(customer);
+                
+                return (
+                  <TableRow key={customer.id} data-testid={`customer-row-${customer.nome}`}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                          <User className="w-4 h-4 text-indigo-600" />
+                        </div>
+                        <span className="font-medium">{customer.nome}</span>
                       </div>
-                      <span className="font-medium">{customer.nome}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{customer.telefone || '-'}</TableCell>
-                  <TableCell className="font-mono text-sm">{customer.cpf || '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <span className={`font-medium ${customer.credito_loja > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                      {formatCurrency(customer.credito_loja || 0)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span
-                      className={`font-medium ${
-                        customer.saldo_devedor > 0 ? 'text-red-600' : 'text-gray-400'
-                      }`}
-                    >
-                      {formatCurrency(customer.saldo_devedor || 0)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      {customer.saldo_devedor > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenPagamento(customer)}
-                          title="Receber pagamento"
-                          className="text-green-600 hover:text-green-700"
-                        >
-                          <DollarSign className="w-4 h-4" />
-                        </Button>
+                    </TableCell>
+                    <TableCell>{customer.telefone || '-'}</TableCell>
+                    <TableCell className="font-mono text-sm">{customer.cpf || '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {isCreditExpired && (
+                          <AlertTriangle 
+                            className="w-4 h-4 text-red-500 animate-pulse" 
+                            title={`Crédito parado há mais de ${DIAS_PARA_EXPIRAR} dias!`}
+                          />
+                        )}
+                        <span className={`font-medium ${isCreditExpired ? 'text-red-600 font-bold' : (customer.credito_loja > 0 ? 'text-green-600' : 'text-gray-400')}`}>
+                          {formatCurrency(customer.credito_loja || 0)}
+                        </span>
+                      </div>
+                      {isCreditExpired && (
+                        <p className="text-[10px] text-red-500">Expira em breve</p>
                       )}
-
-                      {customer.saldo_devedor > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleViewCreditPurchases(customer)}
-                          title="Ver o que comprou no fiado"
-                          className="text-purple-600 hover:text-purple-700"
-                        >
-                          <ShoppingBag className="w-4 h-4" />
-                        </Button>
-                      )}
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewPagamentos(customer)}
-                        title="Histórico de pagamentos"
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span
+                        className={`font-medium ${
+                          customer.saldo_devedor > 0 ? 'text-red-600' : 'text-gray-400'
+                        }`}
                       >
-                        <History className="w-4 h-4 text-blue-600" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenDialog(customer)}
-                        data-testid={`edit-customer-${customer.nome}`}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      {canDelete && (
+                        {formatCurrency(customer.saldo_devedor || 0)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {customer.saldo_devedor > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenPagamento(customer)}
+                            title="Receber pagamento"
+                            className="text-green-600 hover:text-green-700"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                          </Button>
+                        )}
+
+                        {customer.saldo_devedor > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleViewCreditPurchases(customer)}
+                            title="Ver o que comprou no fiado"
+                            className="text-purple-600 hover:text-purple-700"
+                          >
+                            <ShoppingBag className="w-4 h-4" />
+                          </Button>
+                        )}
+
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(customer.id)}
-                          data-testid={`delete-customer-${customer.nome}`}
+                          onClick={() => handleViewPagamentos(customer)}
+                          title="Histórico de pagamentos"
                         >
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <History className="w-4 h-4 text-blue-600" />
                         </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenDialog(customer)}
+                          data-testid={`edit-customer-${customer.nome}`}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(customer.id)}
+                            data-testid={`delete-customer-${customer.nome}`}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
           {filteredCustomers.length === 0 && (
@@ -382,7 +434,115 @@ export default function Customers() {
         </CardContent>
       </Card>
 
-      {/* History Dialog - Pagamentos */}
+      {/* ... (Dialogs de Histórico e Pagamento mantidos iguais) ... */}
+      
+      {/* Customer Dialog (Cadastro/Edição) */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome Completo *</Label>
+              <Input
+                id="nome"
+                data-testid="customer-nome-input"
+                value={formData.nome}
+                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="telefone">Telefone</Label>
+              <Input
+                id="telefone"
+                value={formData.telefone}
+                onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cpf">CPF</Label>
+              <Input
+                id="cpf"
+                value={formData.cpf}
+                onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                placeholder="000.000.000-00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endereco">Endereço</Label>
+              <Input
+                id="endereco"
+                value={formData.endereco}
+                onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="credito_loja">Crédito Loja</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="credito_loja"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.credito_loja}
+                    onChange={(e) => setFormData({ ...formData, credito_loja: parseFloat(e.target.value) || 0 })}
+                    disabled={!canEditBalance} 
+                  />
+                  {/* Botão de Expirar Crédito */}
+                  {editingCustomer && canEditBalance && formData.credito_loja > 0 && (
+                    <Button 
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      title="Expirar (Zerar) Créditos Vencidos"
+                      onClick={() => handleExpirarCreditos(editingCustomer)}
+                    >
+                      <Eraser className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+                {editingCustomer?.data_ultimo_credito && (
+                  <p className="text-[10px] text-gray-500">
+                    Último crédito em: {new Date(editingCustomer.data_ultimo_credito).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="saldo_devedor">Saldo Devedor</Label>
+                <Input
+                  id="saldo_devedor"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.saldo_devedor}
+                  onChange={(e) => setFormData({ ...formData, saldo_devedor: parseFloat(e.target.value) || 0 })}
+                  disabled={!canEditBalance} 
+                />
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" data-testid="save-customer-button">
+                {editingCustomer ? 'Atualizar' : 'Criar'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* ... (Mantenha os outros dialogs de histórico e pagamento aqui embaixo igual estava antes) ... */}
+      
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -420,7 +580,6 @@ export default function Customers() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Histórico de Compras no Fiado */}
       <Dialog open={creditHistoryDialogOpen} onOpenChange={setCreditHistoryDialogOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -477,7 +636,6 @@ export default function Customers() {
         </DialogContent>
       </Dialog>
 
-      {/* Pagamento Dialog */}
       <Dialog open={pagamentoDialogOpen} onOpenChange={setPagamentoDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -542,99 +700,6 @@ export default function Customers() {
               </DialogFooter>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Customer Dialog (Cadastro/Edição) */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome Completo *</Label>
-              <Input
-                id="nome"
-                data-testid="customer-nome-input"
-                value={formData.nome}
-                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="telefone">Telefone</Label>
-              <Input
-                id="telefone"
-                value={formData.telefone}
-                onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                placeholder="(00) 00000-0000"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cpf">CPF</Label>
-              <Input
-                id="cpf"
-                value={formData.cpf}
-                onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                placeholder="000.000.000-00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endereco">Endereço</Label>
-              <Input
-                id="endereco"
-                value={formData.endereco}
-                onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              {/* Campo para Migração de Crédito (Substituiu Limite Crédito) */}
-              <div className="space-y-2">
-                <Label htmlFor="credito_loja">Crédito Loja (Inicial)</Label>
-                <Input
-                  id="credito_loja"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.credito_loja}
-                  onChange={(e) => setFormData({ ...formData, credito_loja: parseFloat(e.target.value) || 0 })}
-                  disabled={!canEditBalance} // Apenas admin/gerente pode definir saldo inicial
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="saldo_devedor">Saldo Devedor (Inicial)</Label>
-                <Input
-                  id="saldo_devedor"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.saldo_devedor}
-                  onChange={(e) => setFormData({ ...formData, saldo_devedor: parseFloat(e.target.value) || 0 })}
-                  disabled={!canEditBalance} 
-                />
-              </div>
-            </div>
-            
-            {!canEditBalance && (
-              <p className="text-[10px] text-gray-500 text-center">
-                Apenas gerentes podem alterar saldos e créditos manualmente.
-              </p>
-            )}
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" data-testid="save-customer-button">
-                {editingCustomer ? 'Atualizar' : 'Criar'}
-              </Button>
-            </DialogFooter>
-          </form>
         </DialogContent>
       </Dialog>
     </div>
