@@ -1397,6 +1397,40 @@ async def get_fechamentos_vendedora(vendedora_id: str, current_user: User = Depe
             f['data'] = datetime.fromisoformat(f['data'])
     return fechamentos
 
+
+# Adicione isso no backend/server.py
+
+@api_router.get("/fechamento-caixa/historico")
+async def get_historico_fechamentos(
+    data_inicio: str, 
+    data_fim: str, 
+    filial_id: Optional[str] = None, 
+    current_user: User = Depends(get_current_active_user)
+):
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Apenas administradores e gerentes podem ver o histórico")
+    
+    query = {}
+    if filial_id:
+        query["filial_id"] = filial_id
+        
+    # Filtro de data (considerando que a data salva no fechamento tem hora)
+    # Ajustamos para pegar o dia inteiro
+    start_dt = datetime.fromisoformat(data_inicio.replace('Z', '+00:00'))
+    # Ajusta o fim para o final do dia
+    end_dt = datetime.fromisoformat(data_fim.replace('Z', '+00:00')).replace(hour=23, minute=59, second=59)
+    
+    query["data"] = {"$gte": start_dt.isoformat(), "$lte": end_dt.isoformat()}
+    
+    fechamentos = await db.fechamentos_caixa.find(query, {"_id": 0}).sort("data", -1).to_list(100)
+    
+    for f in fechamentos:
+        if isinstance(f.get('data'), str):
+            f['data'] = datetime.fromisoformat(f['data'])
+            
+    return fechamentos
+
+
 @api_router.get("/fechamento-caixa/hoje")
 async def get_fechamento_hoje(current_user: User = Depends(get_current_active_user)):
     # Get sales from today for current user's filial
