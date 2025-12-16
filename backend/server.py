@@ -811,20 +811,29 @@ async def estornar_venda(sale_id: str, current_user: User = Depends(get_current_
     if sale.get('customer_id'):
         customer = await db.customers.find_one({"id": sale['customer_id']}, {"_id": 0})
         if customer:
+            # Caso 1: Venda foi no Fiado (Credito) -> Abate a dívida
             if sale['modalidade_pagamento'] == "Credito":
-                # Reverter débito
                 new_saldo = max(0, customer.get('saldo_devedor', 0) - sale['total'])
                 await db.customers.update_one(
                     {"id": sale['customer_id']},
                     {"$set": {"saldo_devedor": new_saldo}}
                 )
                 cliente_atualizado = True
-            # Se usou crédito da loja, devolver o crédito
+            
+            # Caso 2: Cliente usou Crédito da Loja para pagar -> Devolve o crédito
             elif sale.get('credito_usado', 0) > 0:
                 new_credito = customer.get('credito_loja', 0) + sale['credito_usado']
+                
                 await db.customers.update_one(
                     {"id": sale['customer_id']},
-                    {"$set": {"credito_loja": new_credito}}
+                    {
+                        "$set": {
+                            "credito_loja": new_credito,
+                            # ATUALIZAÇÃO IMPORTANTE:
+                            # Se devolveu crédito, atualiza a data para contar o prazo de validade a partir de hoje
+                            "data_ultimo_credito": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
                 )
                 cliente_atualizado = True
     
@@ -863,7 +872,6 @@ async def estornar_venda(sale_id: str, current_user: User = Depends(get_current_
         "cliente_atualizado": cliente_atualizado,
         "detalhes": produtos_devolvidos
     }
-
 # --- SUBSTITUIR A FUNÇÃO get_sales INTEIRA POR ESTA ---
 @api_router.get("/sales", response_model=List[Sale])
 async def get_sales(
@@ -1011,6 +1019,40 @@ async def get_all_credits(current_user: User = Depends(get_current_active_user))
         if isinstance(c.get('data'), str):
             c['data'] = datetime.fromisoformat(c['data'])
     return credits
+
+@api_router.post("/customers/{customer_id}/expirar-credito")
+async def expirar_credito(customer_id: str, current_user: User = Depends(get_current_active_user)):
+    if current_user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Apenas gerentes podem expirar créditos")
+        
+    customer = await db.customers.find_one({"id": customer_id})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+        
+    valor_removido = customer.get('credito_loja', 0)
+    
+    if valor_removido == 0:
+        return {"message": "Cliente não possui créditos para expirar"}
+
+    # Zera o crédito
+    await db.customers.update_one(
+        {"id": customer_id},
+        {"$set": {"credito_loja": 0.0}}
+    )
+    
+    # Registra no log de créditos como uma saída (negativo) para auditoria
+    log_expiracao = {
+        "id": str(uuid.uuid4()),
+        "customer_id": customer_id,
+        "valor": -valor_removido, # Negativo pois saiu
+        "origem": "expiracao_prazo",
+        "observacoes": f"Crédito expirado manualmente por {current_user.full_name}",
+        "data": datetime.now(timezone.utc).isoformat(),
+        "usado": True
+    }
+    await db.store_credits.insert_one(log_expiracao)
+    
+    return {"message": "Créditos expirados com sucesso", "valor_removido": valor_removido}
 
 # ==================== REPORTS ROUTES ====================
 
