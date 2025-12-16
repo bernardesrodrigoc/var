@@ -501,6 +501,21 @@ async def delete_product(product_id: str, current_user: User = Depends(get_curre
 
 @api_router.post("/customers", response_model=Customer)
 async def create_customer(customer: CustomerCreate, current_user: User = Depends(get_current_active_user)):
+    # 1. Validação de CPF Duplicado
+    if customer.cpf:
+        # Limpa pontuação do CPF para comparar apenas números (opcional, mas recomendado)
+        cpf_limpo = customer.cpf.replace(".", "").replace("-", "").strip()
+        
+        # Busca se já existe algum cliente com esse CPF (mesmo em outras filiais, pois a pessoa é única)
+        # Se quiser limitar por filial, adicione "filial_id": customer.filial_id na busca
+        existing = await db.customers.find_one({"cpf": customer.cpf}, {"_id": 0})
+        
+        if existing:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Já existe um cliente cadastrado com este CPF: {existing.get('nome')}"
+            )
+
     customer_obj = Customer(**customer.model_dump())
     doc = customer_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
