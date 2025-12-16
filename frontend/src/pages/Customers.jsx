@@ -9,7 +9,7 @@ import { customersAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { useFilial } from '@/context/FilialContext';
-import { Plus, Edit, Trash2, Search, User, History, DollarSign, ShoppingBag } from 'lucide-react'; // <--- Adicionado ShoppingBag
+import { Plus, Edit, Trash2, Search, User, History, DollarSign, ShoppingBag } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function Customers() {
@@ -22,11 +22,11 @@ export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [pagamentoDialogOpen, setPagamentoDialogOpen] = useState(false);
-  const [creditHistoryDialogOpen, setCreditHistoryDialogOpen] = useState(false); // <--- Novo Dialog
+  const [creditHistoryDialogOpen, setCreditHistoryDialogOpen] = useState(false);
   
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [customerHistory, setCustomerHistory] = useState([]);
-  const [creditPurchases, setCreditPurchases] = useState([]); // <--- Novo Estado para Compras Fiado
+  const [creditPurchases, setCreditPurchases] = useState([]);
   
   const [selectedCustomerPagamento, setSelectedCustomerPagamento] = useState(null);
   const [pagamentoData, setPagamentoData] = useState({
@@ -41,12 +41,14 @@ export default function Customers() {
     endereco: '',
     limite_credito: 0,
     saldo_devedor: 0,
+    credito_loja: 0, // Adicionado campo de crédito loja
   });
   
   const { toast } = useToast();
   const { selectedFilial } = useFilial();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const canDelete = user.role === 'admin' || user.role === 'gerente';
+  // Permissão para editar saldo apenas se for admin/gerente
   const canEditBalance = user.role === 'admin' || user.role === 'gerente';
 
   useEffect(() => {
@@ -96,6 +98,7 @@ export default function Customers() {
         endereco: '',
         limite_credito: 0,
         saldo_devedor: 0,
+        credito_loja: 0,
         filial_id: selectedFilial?.id || '',
       });
     }
@@ -220,7 +223,6 @@ export default function Customers() {
     }
   };
 
-  // --- NOVA FUNÇÃO: Ver o que comprou no Fiado ---
   const handleViewCreditPurchases = async (customer) => {
     try {
       const response = await api.get(`/customers/${customer.id}/compras-fiado`);
@@ -235,7 +237,6 @@ export default function Customers() {
       });
     }
   };
-  // -----------------------------------------------
 
   if (loading) {
     return <div className="flex justify-center items-center h-96">Carregando...</div>;
@@ -317,7 +318,6 @@ export default function Customers() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {/* Botão de Receber Pagamento */}
                       {customer.saldo_devedor > 0 && (
                         <Button
                           variant="ghost"
@@ -330,7 +330,6 @@ export default function Customers() {
                         </Button>
                       )}
 
-                      {/* --- NOVO BOTÃO: Ver Itens do Fiado --- */}
                       {customer.saldo_devedor > 0 && (
                         <Button
                           variant="ghost"
@@ -342,7 +341,6 @@ export default function Customers() {
                           <ShoppingBag className="w-4 h-4" />
                         </Button>
                       )}
-                      {/* -------------------------------------- */}
 
                       <Button
                         variant="ghost"
@@ -422,7 +420,7 @@ export default function Customers() {
         </DialogContent>
       </Dialog>
 
-      {/* --- NOVO DIALOG: Histórico de Compras no Fiado --- */}
+      {/* Dialog: Histórico de Compras no Fiado */}
       <Dialog open={creditHistoryDialogOpen} onOpenChange={setCreditHistoryDialogOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -452,7 +450,6 @@ export default function Customers() {
                     </div>
                   </div>
                   
-                  {/* Lista de Itens daquela venda */}
                   <div className="bg-white rounded border p-3">
                     <p className="text-xs font-semibold text-gray-500 mb-2 uppercase">Itens da Compra</p>
                     <ul className="space-y-2">
@@ -479,7 +476,6 @@ export default function Customers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* -------------------------------------------------- */}
 
       {/* Pagamento Dialog */}
       <Dialog open={pagamentoDialogOpen} onOpenChange={setPagamentoDialogOpen}>
@@ -549,7 +545,7 @@ export default function Customers() {
         </DialogContent>
       </Dialog>
 
-      {/* Customer Dialog */}
+      {/* Customer Dialog (Cadastro/Edição) */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -594,20 +590,24 @@ export default function Customers() {
                 onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
               />
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
+              {/* Campo para Migração de Crédito (Substituiu Limite Crédito) */}
               <div className="space-y-2">
-                <Label htmlFor="limite_credito">Limite Crédito</Label>
+                <Label htmlFor="credito_loja">Crédito Loja (Inicial)</Label>
                 <Input
-                  id="limite_credito"
+                  id="credito_loja"
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.limite_credito}
-                  onChange={(e) => setFormData({ ...formData, limite_credito: parseFloat(e.target.value) || 0 })}
+                  value={formData.credito_loja}
+                  onChange={(e) => setFormData({ ...formData, credito_loja: parseFloat(e.target.value) || 0 })}
+                  disabled={!canEditBalance} // Apenas admin/gerente pode definir saldo inicial
                 />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="saldo_devedor">Saldo Devedor</Label>
+                <Label htmlFor="saldo_devedor">Saldo Devedor (Inicial)</Label>
                 <Input
                   id="saldo_devedor"
                   type="number"
@@ -615,14 +615,17 @@ export default function Customers() {
                   min="0"
                   value={formData.saldo_devedor}
                   onChange={(e) => setFormData({ ...formData, saldo_devedor: parseFloat(e.target.value) || 0 })}
-                  disabled={!canEditBalance}
+                  disabled={!canEditBalance} 
                 />
-                {/* Opcional: Mostrar aviso visual se estiver bloqueado */}
-                {!canEditBalance && (
-                  <p className="text-[10px] text-gray-500">Apenas gerentes podem alterar o saldo manualmente.</p>
-                )}
               </div>
             </div>
+            
+            {!canEditBalance && (
+              <p className="text-[10px] text-gray-500 text-center">
+                Apenas gerentes podem alterar saldos e créditos manualmente.
+              </p>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
