@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,23 +7,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useFilial } from '@/context/FilialContext';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-import { DollarSign, CreditCard, Smartphone, Wallet, Save, History, MinusCircle, Lock, Unlock } from 'lucide-react';
+import { DollarSign, CreditCard, Smartphone, Wallet, Save, History, MinusCircle, PlusCircle, ArrowUpRight, AlertTriangle, Lock, Unlock } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function FechamentoCaixa() {
-  const [statusCaixa, setStatusCaixa] = useState('nao_iniciado'); // nao_iniciado, aberto, fechado
+  const [statusCaixa, setStatusCaixa] = useState('nao_iniciado');
   const [resumo, setResumo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [observacoes, setObservacoes] = useState('');
   
-  // Estados para Abertura
+  // Abertura
   const [valorInicial, setValorInicial] = useState('');
   
-  // Estados para Sangria
-  const [sangriaOpen, setSangriaOpen] = useState(false);
-  const [sangriaData, setSangriaData] = useState({ valor: '', observacao: '' });
+  // Movimentos (Sangria, Gerencia, Suprimento)
+  const [movimentoOpen, setMovimentoOpen] = useState(false);
+  const [tipoMovimento, setTipoMovimento] = useState(''); // 'sangria', 'retirada_gerencia', 'suprimento'
+  const [movimentoData, setMovimentoData] = useState({ valor: '', observacao: '' });
 
-  // Estados para Histórico
+  // Histórico
   const [historicoOpen, setHistoricoOpen] = useState(false);
   const [historicoData, setHistoricoData] = useState([]);
   const [dataInicioHist, setDataInicioHist] = useState(new Date().toISOString().split('T')[0]);
@@ -32,8 +33,8 @@ export default function FechamentoCaixa() {
   const { selectedFilial } = useFilial();
   const { toast } = useToast();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const canManage = user.role === 'vendedora' || user.role === 'gerente' || user.role === 'admin';
-  const canViewHistory = user.role === 'admin' || user.role === 'gerente';
+  const canManage = ['vendedora', 'gerente', 'admin'].includes(user.role);
+  const canViewHistory = ['admin', 'gerente'].includes(user.role);
 
   useEffect(() => {
     if (selectedFilial) {
@@ -45,7 +46,8 @@ export default function FechamentoCaixa() {
     if (!selectedFilial) return;
     setLoading(true);
     try {
-      const response = await api.get('/fechamento-caixa/hoje');
+      // Passa a filial explicitamente para garantir que admin veja a loja certa
+      const response = await api.get(`/fechamento-caixa/hoje?filial_id=${selectedFilial.id}`);
       setResumo(response.data);
       setStatusCaixa(response.data.status_caixa);
     } catch (error) {
@@ -76,36 +78,48 @@ export default function FechamentoCaixa() {
     }
   };
 
-  const handleSalvarSangria = async () => {
-    const valor = parseFloat(sangriaData.valor);
+  const openMovimentoDialog = (tipo) => {
+    setTipoMovimento(tipo);
+    setMovimentoData({ valor: '', observacao: '' });
+    setMovimentoOpen(true);
+  };
+
+  const handleSalvarMovimento = async () => {
+    const valor = parseFloat(movimentoData.valor);
     if (isNaN(valor) || valor <= 0) {
       toast({ variant: 'destructive', title: 'Valor inválido' });
       return;
     }
-    if (!sangriaData.observacao) {
-      toast({ variant: 'destructive', title: 'Informe o motivo (ex: Padaria)' });
+    if (!movimentoData.observacao) {
+      toast({ variant: 'destructive', title: 'Informe uma descrição' });
       return;
     }
 
     try {
-      await api.post('/caixa/sangria', {
+      await api.post('/caixa/movimento', {
         filial_id: selectedFilial.id,
         usuario: user.full_name,
-        tipo: 'sangria',
+        tipo: tipoMovimento,
         valor: valor,
-        observacao: sangriaData.observacao
+        observacao: movimentoData.observacao
       });
-      toast({ title: 'Sangria Registrada!' });
-      setSangriaOpen(false);
-      setSangriaData({ valor: '', observacao: '' });
+      
+      const titulos = {
+        'sangria': 'Despesa Registrada',
+        'retirada_gerencia': 'Retirada Registrada',
+        'suprimento': 'Entrada Registrada'
+      };
+      
+      toast({ title: titulos[tipoMovimento] });
+      setMovimentoOpen(false);
       loadResumo();
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Erro ao registrar sangria' });
+      toast({ variant: 'destructive', title: 'Erro ao registrar movimento' });
     }
   };
 
   const handleFecharCaixa = async () => {
-    if (!window.confirm('Confirma o fechamento do dia? Isso atualizará os valores finais.')) return;
+    if (!window.confirm('Confirma o fechamento do dia? Isso atualizará os valores finais no sistema.')) return;
 
     try {
       await api.post('/fechamento-caixa', {
@@ -113,7 +127,10 @@ export default function FechamentoCaixa() {
         vendedora_nome: user.full_name,
         filial_id: selectedFilial.id,
         saldo_inicial: resumo.saldo_inicial,
+        total_suprimentos: resumo.total_suprimentos,
         total_sangrias: resumo.total_sangrias,
+        total_retiradas_gerencia: resumo.total_retiradas_gerencia,
+        
         total_dinheiro: resumo.total_dinheiro,
         total_pix: resumo.total_pix,
         total_cartao: resumo.total_cartao,
@@ -125,7 +142,7 @@ export default function FechamentoCaixa() {
 
       toast({ title: 'Caixa Fechado com Sucesso!' });
       setObservacoes('');
-      loadResumo(); // Atualiza para mostrar status fechado
+      loadResumo();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erro ao fechar caixa' });
     }
@@ -147,7 +164,7 @@ export default function FechamentoCaixa() {
 
   if (loading) return <div className="flex justify-center items-center h-96">Carregando...</div>;
 
-  // --- TELA DE ABERTURA DE CAIXA ---
+  // --- ABERTURA ---
   if (statusCaixa === 'nao_iniciado') {
     return (
       <div className="flex items-center justify-center h-[80vh]">
@@ -157,7 +174,7 @@ export default function FechamentoCaixa() {
               <Unlock className="w-8 h-8 text-indigo-600" />
             </div>
             <CardTitle className="text-2xl text-indigo-900">Abertura de Caixa</CardTitle>
-            <CardDescription>Informe o valor em dinheiro na gaveta para iniciar o dia.</CardDescription>
+            <CardDescription>Informe o valor em dinheiro na gaveta.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
             <div className="space-y-2">
@@ -181,41 +198,67 @@ export default function FechamentoCaixa() {
     );
   }
 
-  // --- TELA DE GESTÃO DO CAIXA (ABERTO OU FECHADO) ---
+  // --- GESTÃO ---
   
-  // Cálculo do dinheiro FÍSICO esperado na gaveta
-  const dinheiroEmCaixa = (resumo.saldo_inicial || 0) + (resumo.total_dinheiro || 0) - (resumo.total_sangrias || 0);
+  // Cálculo do Dinheiro na Gaveta
+  const dinheiroNaGaveta = (resumo.saldo_inicial || 0) 
+                         + (resumo.total_dinheiro || 0) 
+                         + (resumo.total_suprimentos || 0) 
+                         - (resumo.total_sangrias || 0) 
+                         - (resumo.total_retiradas_gerencia || 0);
 
   return (
     <div className="space-y-6 pb-10" data-testid="fechamento-page">
+      {/* ALERTA DE INCONSISTÊNCIA */}
+      {resumo.inconsistencia_abertura && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-6 h-6" />
+            <div>
+              <p className="font-bold">Atenção: Inconsistência de Caixa!</p>
+              <p className="text-sm">
+                O valor de abertura de hoje não bate com o fechamento de ontem. 
+                Diferença: <strong>{formatCurrency(resumo.diferenca_abertura)}</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
             Gestão de Caixa
-            {statusCaixa === 'fechado' && <span className="text-sm bg-red-100 text-red-800 px-3 py-1 rounded-full flex items-center gap-1"><Lock className="w-3 h-3"/> FECHADO</span>}
+            {statusCaixa === 'fechado' && <span className="text-sm bg-gray-200 text-gray-800 px-3 py-1 rounded-full flex items-center gap-1"><Lock className="w-3 h-3"/> FECHADO</span>}
             {statusCaixa === 'aberto' && <span className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center gap-1"><Unlock className="w-3 h-3"/> ABERTO</span>}
           </h1>
-          <p className="text-gray-500 mt-1">Controle diário e conferência de valores</p>
+          <p className="text-gray-500 mt-1">Filial: {selectedFilial.nome}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {canViewHistory && (
             <Button variant="outline" onClick={handleOpenHistorico}>
               <History className="w-4 h-4 mr-2" /> Histórico
             </Button>
           )}
+          
           {statusCaixa === 'aberto' && (
-            <Button variant="destructive" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" onClick={() => setSangriaOpen(true)}>
-              <MinusCircle className="w-4 h-4 mr-2" /> Retirada / Sangria
-            </Button>
+            <>
+              <Button variant="outline" className="text-green-700 border-green-200 hover:bg-green-50" onClick={() => openMovimentoDialog('suprimento')}>
+                <PlusCircle className="w-4 h-4 mr-2" /> Suprimento
+              </Button>
+              <Button variant="outline" className="text-red-700 border-red-200 hover:bg-red-50" onClick={() => openMovimentoDialog('sangria')}>
+                <MinusCircle className="w-4 h-4 mr-2" /> Despesa
+              </Button>
+              <Button variant="outline" className="text-orange-700 border-orange-200 hover:bg-orange-50" onClick={() => openMovimentoDialog('retirada_gerencia')}>
+                <ArrowUpRight className="w-4 h-4 mr-2" /> Gerência
+              </Button>
+            </>
           )}
-          {canManage && statusCaixa === 'aberto' && (
+
+          {canManage && (
             <Button onClick={handleFecharCaixa} className="bg-gray-900 hover:bg-gray-800">
-              <Save className="w-4 h-4 mr-2" /> Fechar Caixa
-            </Button>
-          )}
-          {canManage && statusCaixa === 'fechado' && (
-            <Button onClick={handleFecharCaixa} variant="outline">
-              <Save className="w-4 h-4 mr-2" /> Atualizar Fechamento
+              <Save className="w-4 h-4 mr-2" /> 
+              {statusCaixa === 'aberto' ? 'Fechar Caixa' : 'Atualizar Fechamento'}
             </Button>
           )}
         </div>
@@ -225,26 +268,34 @@ export default function FechamentoCaixa() {
       <Card className="border-2 border-green-100 bg-green-50/30">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg font-bold text-green-900 flex items-center gap-2">
-            <DollarSign className="w-5 h-5" /> Conferência do Dinheiro (Gaveta)
+            <DollarSign className="w-5 h-5" /> Dinheiro em Espécie (Gaveta)
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div className="p-3 bg-white rounded shadow-sm">
-              <p className="text-xs text-gray-500 uppercase font-bold">Saldo Inicial</p>
-              <p className="text-lg font-mono text-gray-700">+{formatCurrency(resumo.saldo_inicial)}</p>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
+            <div className="p-2 bg-white rounded shadow-sm">
+              <p className="text-[10px] text-gray-500 uppercase font-bold">Saldo Inicial</p>
+              <p className="text-base font-mono text-gray-700">+{formatCurrency(resumo.saldo_inicial)}</p>
             </div>
-            <div className="p-3 bg-white rounded shadow-sm">
-              <p className="text-xs text-gray-500 uppercase font-bold">Vendas Dinheiro</p>
-              <p className="text-lg font-mono text-green-600">+{formatCurrency(resumo.total_dinheiro)}</p>
+            <div className="p-2 bg-white rounded shadow-sm">
+              <p className="text-[10px] text-gray-500 uppercase font-bold">Vendas Dinheiro</p>
+              <p className="text-base font-mono text-green-600">+{formatCurrency(resumo.total_dinheiro)}</p>
             </div>
-            <div className="p-3 bg-white rounded shadow-sm">
-              <p className="text-xs text-gray-500 uppercase font-bold">Sangrias (Saídas)</p>
-              <p className="text-lg font-mono text-red-600">-{formatCurrency(resumo.total_sangrias)}</p>
+            <div className="p-2 bg-white rounded shadow-sm">
+              <p className="text-[10px] text-gray-500 uppercase font-bold">Suprimentos</p>
+              <p className="text-base font-mono text-green-600">+{formatCurrency(resumo.total_suprimentos)}</p>
             </div>
-            <div className="p-3 bg-green-100 rounded shadow-sm border border-green-200">
-              <p className="text-xs text-green-800 uppercase font-bold">Total na Gaveta</p>
-              <p className="text-2xl font-bold text-green-900">{formatCurrency(dinheiroEmCaixa)}</p>
+            <div className="p-2 bg-white rounded shadow-sm">
+              <p className="text-[10px] text-gray-500 uppercase font-bold">Despesas</p>
+              <p className="text-base font-mono text-red-600">-{formatCurrency(resumo.total_sangrias)}</p>
+            </div>
+            <div className="p-2 bg-white rounded shadow-sm">
+              <p className="text-[10px] text-gray-500 uppercase font-bold">Retirada Gerência</p>
+              <p className="text-base font-mono text-orange-600">-{formatCurrency(resumo.total_retiradas_gerencia)}</p>
+            </div>
+            <div className="p-2 bg-green-100 rounded shadow-sm border border-green-200">
+              <p className="text-[10px] text-green-800 uppercase font-bold">Total Gaveta</p>
+              <p className="text-xl font-bold text-green-900">{formatCurrency(dinheiroNaGaveta)}</p>
             </div>
           </div>
         </CardContent>
@@ -259,7 +310,7 @@ export default function FechamentoCaixa() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-900">{formatCurrency(resumo.total_pix)}</div>
-            <p className="text-xs text-blue-600 mt-1">Na conta bancária</p>
+            <p className="text-xs text-blue-600 mt-1">Total Bancário</p>
           </CardContent>
         </Card>
 
@@ -281,7 +332,7 @@ export default function FechamentoCaixa() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-900">{formatCurrency(resumo.total_credito)}</div>
-            <p className="text-xs text-orange-600 mt-1">Saldo devedor gerado</p>
+            <p className="text-xs text-orange-600 mt-1">Vendas a prazo</p>
           </CardContent>
         </Card>
       </div>
@@ -320,30 +371,42 @@ export default function FechamentoCaixa() {
           </CardContent>
         </Card>
 
-        {/* Histórico de Sangrias */}
+        {/* Movimentações do Dia */}
         <Card>
           <CardHeader>
-            <CardTitle>Saídas e Despesas (Sangrias)</CardTitle>
+            <CardTitle>Movimentações do Caixa</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {resumo.lista_sangrias && resumo.lista_sangrias.length > 0 ? (
-                  resumo.lista_sangrias.map((s, idx) => (
+                {resumo.lista_movimentos && resumo.lista_movimentos.length > 0 ? (
+                  resumo.lista_movimentos.map((m, idx) => (
                     <TableRow key={idx}>
-                      <TableCell>{s.observacao}</TableCell>
-                      <TableCell className="text-right text-red-600">-{formatCurrency(s.valor)}</TableCell>
+                      <TableCell>
+                        <span className={`text-xs px-2 py-1 rounded font-medium ${
+                          m.tipo === 'suprimento' ? 'bg-green-100 text-green-700' :
+                          m.tipo === 'retirada_gerencia' ? 'bg-orange-100 text-orange-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {m.tipo === 'suprimento' ? 'Entrada' : m.tipo === 'retirada_gerencia' ? 'Gerência' : 'Despesa'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm">{m.observacao}</TableCell>
+                      <TableCell className={`text-right font-mono ${m.tipo === 'suprimento' ? 'text-green-600' : 'text-red-600'}`}>
+                        {m.tipo === 'suprimento' ? '+' : '-'}{formatCurrency(m.valor)}
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={2} className="text-center text-gray-500 py-4">Nenhuma retirada hoje</TableCell>
+                    <TableCell colSpan={3} className="text-center text-gray-500 py-4">Nenhuma movimentação</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -352,7 +415,7 @@ export default function FechamentoCaixa() {
         </Card>
       </div>
 
-      {/* Campo de Observações */}
+      {/* Observações */}
       <Card>
         <CardContent className="pt-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -360,18 +423,21 @@ export default function FechamentoCaixa() {
           </label>
           <textarea
             className="w-full p-3 border rounded-md h-24 focus:ring-2 focus:ring-indigo-500 outline-none"
-            placeholder="Digite aqui quebras de caixa, justificativas, etc..."
+            placeholder="Digite aqui justificativas de diferenças, etc..."
             value={observacoes}
             onChange={(e) => setObservacoes(e.target.value)}
           />
         </CardContent>
       </Card>
 
-      {/* Dialog Sangria */}
-      <Dialog open={sangriaOpen} onOpenChange={setSangriaOpen}>
+      {/* Dialog Movimento (Sangria/Suprimento) */}
+      <Dialog open={movimentoOpen} onOpenChange={setMovimentoOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Registrar Retirada (Sangria)</DialogTitle>
+            <DialogTitle>
+              {tipoMovimento === 'suprimento' ? 'Adicionar Dinheiro (Entrada)' : 
+               tipoMovimento === 'retirada_gerencia' ? 'Retirada para Gerência' : 'Registrar Despesa (Sangria)'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -379,28 +445,33 @@ export default function FechamentoCaixa() {
               <Input 
                 type="number" 
                 step="0.01" 
-                value={sangriaData.valor}
-                onChange={e => setSangriaData({...sangriaData, valor: e.target.value})}
+                value={movimentoData.valor}
+                onChange={e => setMovimentoData({...movimentoData, valor: e.target.value})}
                 autoFocus
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Motivo / Descrição</label>
+              <label className="text-sm font-medium">Descrição / Motivo</label>
               <Input 
-                placeholder="Ex: Compra de material de limpeza" 
-                value={sangriaData.observacao}
-                onChange={e => setSangriaData({...sangriaData, observacao: e.target.value})}
+                placeholder={tipoMovimento === 'suprimento' ? 'Ex: Troco inicial extra' : 'Ex: Recolhimento de valores'} 
+                value={movimentoData.observacao}
+                onChange={e => setMovimentoData({...movimentoData, observacao: e.target.value})}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSangriaOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSalvarSangria} className="bg-red-600 hover:bg-red-700">Confirmar Retirada</Button>
+            <Button variant="outline" onClick={() => setMovimentoOpen(false)}>Cancelar</Button>
+            <Button 
+              onClick={handleSalvarMovimento} 
+              className={tipoMovimento === 'suprimento' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+            >
+              Confirmar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Histórico (IGUAL AO ANTERIOR) */}
+      {/* Dialog Histórico */}
       <Dialog open={historicoOpen} onOpenChange={setHistoricoOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -433,43 +504,42 @@ export default function FechamentoCaixa() {
             <TableHeader>
               <TableRow>
                 <TableHead>Data</TableHead>
-                <TableHead>Saldo Inicial</TableHead>
+                <TableHead>Responsável</TableHead>
+                <TableHead className="text-right">Inicial</TableHead>
                 <TableHead className="text-right">Vendas</TableHead>
-                <TableHead className="text-right">Sangrias</TableHead>
-                <TableHead className="text-right font-bold">Total Geral</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Saídas</TableHead>
+                <TableHead className="text-right font-bold">Gaveta Final</TableHead>
+                <TableHead>Obs</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {historicoData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     Nenhum fechamento encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
-                historicoData.map((f) => (
-                  <TableRow key={f.id}>
-                    <TableCell className="font-medium whitespace-nowrap">
-                      {new Date(f.data).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell>{formatCurrency(f.saldo_inicial)}</TableCell>
-                    <TableCell className="text-right text-green-600">
-                      {formatCurrency(f.total_geral)}
-                    </TableCell>
-                    <TableCell className="text-right text-red-600">
-                      -{formatCurrency(f.total_sangrias)}
-                    </TableCell>
-                    <TableCell className="text-right font-bold">
-                      {formatCurrency(f.total_geral + f.saldo_inicial - f.total_sangrias)}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded text-xs ${f.status === 'fechado' ? 'bg-gray-200' : 'bg-green-100 text-green-800'}`}>
-                        {f.status}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))
+                historicoData.map((f) => {
+                  const gavetaFinal = (f.saldo_inicial || 0) + (f.total_dinheiro || 0) + (f.total_suprimentos || 0) - (f.total_sangrias || 0) - (f.total_retiradas_gerencia || 0);
+                  return (
+                    <TableRow key={f.id}>
+                      <TableCell className="font-medium whitespace-nowrap">
+                        {new Date(f.data).toLocaleDateString('pt-BR')} <br/>
+                        <span className="text-xs text-gray-500">{new Date(f.data).toLocaleTimeString('pt-BR')}</span>
+                      </TableCell>
+                      <TableCell>{f.vendedora_nome}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(f.saldo_inicial)}</TableCell>
+                      <TableCell className="text-right text-green-600">{formatCurrency(f.total_dinheiro)}</TableCell>
+                      <TableCell className="text-right text-red-600">-{formatCurrency((f.total_sangrias || 0) + (f.total_retiradas_gerencia || 0))}</TableCell>
+                      <TableCell className="text-right font-bold">{formatCurrency(gavetaFinal)}</TableCell>
+                      <TableCell className="text-xs max-w-[150px] truncate" title={f.observacoes}>
+                        {f.inconsistencia_abertura && <span className="text-red-600 font-bold block">! Inconsistência</span>}
+                        {f.observacoes || '-'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
