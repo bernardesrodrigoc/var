@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useFilial } from '@/context/FilialContext';
 import { useToast } from '@/components/ui/use-toast';
-import { FileText, Download, Calendar, XCircle, AlertTriangle, DollarSign, CreditCard, Smartphone, Wallet, ShoppingBag } from 'lucide-react';
+import { FileText, Download, Calendar, XCircle, AlertTriangle, DollarSign, CreditCard, Smartphone, Wallet, ShoppingBag, Layers } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '@/lib/api';
 
@@ -338,6 +338,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                     <div className="flex items-center gap-3 flex-wrap">
                       <p className="font-bold text-gray-900 text-lg">{sale.vendedor}</p>
                       
+                      {/* Badge Principal */}
                       <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
                         {sale.modalidade_pagamento === 'Credito' ? 'A Prazo' : sale.modalidade_pagamento}
                       </span>
@@ -364,6 +365,19 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                         </span>
                       )}
                     </div>
+
+                    {/* --- NOVO: DETALHAMENTO DE PAGAMENTO MISTO --- */}
+                    {sale.modalidade_pagamento === 'Misto' && sale.pagamentos && (
+                      <div className="flex gap-2 flex-wrap mt-2 mb-1">
+                        {sale.pagamentos.map((pag, idx) => (
+                          <div key={idx} className="flex items-center gap-1 text-[10px] bg-indigo-50 border border-indigo-100 px-2 py-1 rounded text-indigo-700 font-medium">
+                            <Layers className="w-3 h-3" />
+                            <span>{pag.modalidade === 'Credito' ? 'A Prazo' : pag.modalidade}: {formatCurrency(pag.valor)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* ------------------------------------------- */}
                     
                     {/* Detalhes Data/Cliente */}
                     <div className="flex justify-between md:justify-start md:gap-8 mt-2 text-sm text-gray-600">
@@ -373,7 +387,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                       )}
                     </div>
 
-                    {/* --- LISTA DE ITENS VENDIDOS --- */}
+                    {/* Lista de Itens */}
                     <div className="mt-3 bg-white border border-gray-200 rounded-md p-3 max-w-2xl shadow-sm">
                       <p className="text-xs font-semibold text-gray-500 mb-2 uppercase flex items-center gap-1">
                         <ShoppingBag className="w-3 h-3"/> Itens da Venda ({sale.items.length})
@@ -393,7 +407,6 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                         ))}
                       </ul>
                     </div>
-                    {/* ------------------------------- */}
 
                   </div>
                   
