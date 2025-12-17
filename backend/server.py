@@ -1534,6 +1534,21 @@ async def registrar_movimento(movimento: CaixaMovimentoBase, current_user: User 
     await db.caixa_movimentos.insert_one(doc)
     return mov_obj
 
+
+@api_router.delete("/caixa/movimento/{movimento_id}")
+async def delete_movimento(movimento_id: str, current_user: User = Depends(get_current_active_user)):
+    # Verifica se o movimento existe
+    movimento = await db.caixa_movimentos.find_one({"id": movimento_id})
+    if not movimento:
+        raise HTTPException(status_code=404, detail="Movimento não encontrado")
+    
+    # Regra de segurança: Apenas quem criou ou Gerente/Admin pode apagar
+    if current_user.role == "vendedora" and movimento["usuario"] != current_user.full_name:
+        raise HTTPException(status_code=403, detail="Você não pode excluir um movimento criado por outro usuário")
+
+    await db.caixa_movimentos.delete_one({"id": movimento_id})
+    return {"message": "Movimento excluído com sucesso"}
+
 @api_router.post("/fechamento-caixa")
 async def salvar_fechamento(fechamento: FechamentoCaixaBase, current_user: User = Depends(get_current_active_user)):
     # Lógica de UPSERT
