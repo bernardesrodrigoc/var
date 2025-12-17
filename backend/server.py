@@ -1880,25 +1880,44 @@ async def create_transferencia(transf: TransferenciaBase, current_user: User = D
     await db.transferencias.insert_one(doc)
     return transf_obj
 
+
+
 @api_router.get("/transferencias")
 async def get_transferencias(
     filial_id: Optional[str] = None, 
-    skip: int = 0, 
-    limit: int = 100, 
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+    responsavel: Optional[str] = None,
     current_user: User = Depends(get_current_active_user)
 ):
-    # Apenas admin/gerente podem ver
     if current_user.role not in ["admin", "gerente"]:
-        raise HTTPException(status_code=403, detail="Sem permissão para ver transferências")
+        raise HTTPException(status_code=403, detail="Sem permissão")
     
-    # Filtra apenas as retiradas de gerência na tabela unificada de caixa
-    query = {"tipo": "retirada_gerencia"} 
+    # Filtra apenas retiradas de gerência
+    query = {"tipo": "retirada_gerencia"}
     
     if filial_id:
         query["filial_id"] = filial_id
+        
+    # Filtro por Responsável (parcial/case insensitive)
+    if responsavel:
+        query["usuario"] = {"$regex": responsavel, "$options": "i"}
+
+    # Filtro de Data
+    if data_inicio:
+        start_dt = datetime.fromisoformat(data_inicio.replace('Z', '+00:00'))
+        # Se tiver data fim, usa ela, senão pega até o fim do dia inicial
+        if data_fim:
+            end_dt = datetime.fromisoformat(data_fim.replace('Z', '+00:00')).replace(hour=23, minute=59, second=59)
+        else:
+            end_dt = start_dt.replace(hour=23, minute=59, second=59)
+        
+        query["data"] = {"$gte": start_dt.isoformat(), "$lte": end_dt.isoformat()}
     
-    # Busca na coleção NOVA de movimentos de caixa
-    movimentos = await db.caixa_movimentos.find(query, {"_id": 0}).sort("data", -1).skip(skip).limit(limit).to_list(limit)
+    # Busca (Aumenta o limite se tiver filtro de data para permitir relatórios completos)
+    limit = 5000 if data_inicio else 100
+    
+    movimentos = await db.caixa_movimentos.find(query, {"_id": 0}).sort("data", -1).to_list(limit)
     
     for m in movimentos:
         if isinstance(m.get('data'), str):
@@ -1906,27 +1925,33 @@ async def get_transferencias(
             
     return movimentos
 
-@api_router.put("/transferencias/{transf_id}")
-async def update_transferencia(transf_id: str, transf_data: TransferenciaBase, current_user: User = Depends(get_current_active_user)):
+# Nova Rota: Editar Movimento (substitui o antigo update_transferencia)
+@api_router.put("/caixa/movimento/{movimento_id}")
+async def update_movimento(movimento_id: str, dados: CaixaMovimentoBase, current_user: User = Depends(get_current_active_user)):
     if current_user.role not in ["admin", "gerente"]:
-        raise HTTPException(status_code=403, detail="Sem permissão")
-    
-    await db.transferencias.update_one(
-        {"id": transf_id},
-        {"$set": transf_data.model_dump(exclude={'vendedora_id', 'vendedora_nome', 'filial_id'})}
-    )
-    return {"message": "Transferência atualizada"}
+        raise HTTPException(status_code=403, detail="Apenas admin/gerente podem editar")
 
-@api_router.delete("/transferencias/{transf_id}")
-async def delete_transferencia(transf_id: str, current_user: User = Depends(get_current_active_user)):
-    if current_user.role not in ["admin", "gerente"]:
-        raise HTTPException(status_code=403, detail="Sem permissão")
-    
-    result = await db.transferencias.delete_one({"id": transf_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Transferência não encontrada")
-    return {"message": "Transferência excluída"}
+    # Verifica se existe na tabela de CAIXA
+    existing = await db.caixa_movimentos.find_one({"id": movimento_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Movimento não encontrado")
 
+    update_dict = dados.model_dump(exclude={'filial_id', 'usuario', 'tipo'}) 
+    
+    await db.caixa_movimentos.update_one({"id": movimento_id}, {"$set": update_dict})
+    return {"message": "Atualizado com sucesso"}
+
+# Nova Rota: Exclusão em Massa (Bulk Delete)
+class BulkDeleteRequest(BaseModel):
+    ids: List[str]
+
+@api_router.post("/caixa/movimentos/bulk-delete")
+async def delete_movimentos_bulk(request: BulkDeleteRequest, current_user: User = Depends(get_current_active_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem excluir em massa")
+    
+    result = await db.caixa_movimentos.delete_many({"id": {"$in": request.ids}})
+    return {"message": f"{result.deleted_count} registros excluídos com sucesso"}
 # ==================== FILIAIS ROUTES ====================
 
 class FilialBase(BaseModel):
