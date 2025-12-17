@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useFilial } from '@/context/FilialContext';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-import { DollarSign, CreditCard, Smartphone, Wallet, Save, History, MinusCircle, PlusCircle, ArrowUpRight, AlertTriangle, Lock, Unlock } from 'lucide-react';
+import { DollarSign, CreditCard, Smartphone, Wallet, Save, History, MinusCircle, PlusCircle, ArrowUpRight, AlertTriangle, Lock, Unlock, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function FechamentoCaixa() {
@@ -46,10 +46,13 @@ export default function FechamentoCaixa() {
     if (!selectedFilial) return;
     setLoading(true);
     try {
-      // Passa a filial explicitamente para garantir que admin veja a loja certa
       const response = await api.get(`/fechamento-caixa/hoje?filial_id=${selectedFilial.id}`);
       setResumo(response.data);
       setStatusCaixa(response.data.status_caixa);
+      // Se já tiver observação salva no banco, carrega ela
+      if (response.data.observacoes) {
+        setObservacoes(response.data.observacoes);
+      }
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Erro ao carregar caixa' });
@@ -104,22 +107,29 @@ export default function FechamentoCaixa() {
         observacao: movimentoData.observacao
       });
       
-      const titulos = {
-        'sangria': 'Despesa Registrada',
-        'retirada_gerencia': 'Retirada Registrada',
-        'suprimento': 'Entrada Registrada'
-      };
-      
-      toast({ title: titulos[tipoMovimento] });
+      toast({ title: 'Movimentação Registrada!', description: 'O saldo foi atualizado.' });
       setMovimentoOpen(false);
-      loadResumo();
+      loadResumo(); // Recarrega para atualizar os totais
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erro ao registrar movimento' });
     }
   };
 
+  // NOVA FUNÇÃO: Excluir Movimento
+  const handleDeleteMovimento = async (id) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta movimentação? O saldo será recalculado.')) return;
+
+    try {
+      await api.delete(`/caixa/movimento/${id}`);
+      toast({ title: 'Movimentação excluída' });
+      loadResumo();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.response?.data?.detail });
+    }
+  };
+
   const handleFecharCaixa = async () => {
-    if (!window.confirm('Confirma o fechamento do dia? Isso atualizará os valores finais no sistema.')) return;
+    if (!window.confirm(statusCaixa === 'fechado' ? 'Confirma a ATUALIZAÇÃO do fechamento?' : 'Confirma o fechamento do dia?')) return;
 
     try {
       await api.post('/fechamento-caixa', {
@@ -140,8 +150,8 @@ export default function FechamentoCaixa() {
         observacoes: observacoes
       });
 
-      toast({ title: 'Caixa Fechado com Sucesso!' });
-      setObservacoes('');
+      toast({ title: statusCaixa === 'fechado' ? 'Caixa Atualizado!' : 'Caixa Fechado com Sucesso!' });
+      if (statusCaixa === 'aberto') setObservacoes('');
       loadResumo();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erro ao fechar caixa' });
@@ -241,7 +251,8 @@ export default function FechamentoCaixa() {
             </Button>
           )}
           
-          {statusCaixa === 'aberto' && (
+          {/* BOTÕES DE MOVIMENTAÇÃO AGORA APARECEM SEMPRE QUE O CAIXA ESTÁ INICIADO */}
+          {statusCaixa !== 'nao_iniciado' && (
             <>
               <Button variant="outline" className="text-green-700 border-green-200 hover:bg-green-50" onClick={() => openMovimentoDialog('suprimento')}>
                 <PlusCircle className="w-4 h-4 mr-2" /> Suprimento
@@ -383,6 +394,7 @@ export default function FechamentoCaixa() {
                   <TableHead>Tipo</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -402,11 +414,25 @@ export default function FechamentoCaixa() {
                       <TableCell className={`text-right font-mono ${m.tipo === 'suprimento' ? 'text-green-600' : 'text-red-600'}`}>
                         {m.tipo === 'suprimento' ? '+' : '-'}{formatCurrency(m.valor)}
                       </TableCell>
+                      <TableCell>
+                        {/* Botão de Excluir */}
+                        {canManage && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-gray-400 hover:text-red-600"
+                            onClick={() => handleDeleteMovimento(m.id)}
+                            title="Excluir movimentação"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-gray-500 py-4">Nenhuma movimentação</TableCell>
+                    <TableCell colSpan={4} className="text-center text-gray-500 py-4">Nenhuma movimentação</TableCell>
                   </TableRow>
                 )}
               </TableBody>
