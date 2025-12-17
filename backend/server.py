@@ -1581,8 +1581,6 @@ async def salvar_fechamento(fechamento: FechamentoCaixaBase, current_user: User 
 async def get_fechamento_hoje(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
     today = datetime.now(timezone.utc).date()
     
-    # Se não passou filial_id na query, usa a do usuário. 
-    # ISSO CORRIGE O PROBLEMA DO ADMIN: O Frontend deve passar a filial selecionada.
     target_filial_id = filial_id if filial_id else current_user.filial_id
     if not target_filial_id:
         target_filial_id = "default"
@@ -1594,16 +1592,29 @@ async def get_fechamento_hoje(filial_id: Optional[str] = None, current_user: Use
     sales_query = {
         "vendedor": {"$in": vendedores_filial},
         "data": {"$gte": today.isoformat()},
-        "estornada": {"$ne": True},
-        "is_troca": {"$ne": True}
+        # Trazemos tudo, inclusive estornadas, para conferência, 
+        # mas o frontend pode decidir como mostrar visualmente (riscado, etc)
     }
 
-    sales_list = await db.sales.find(sales_query, {"_id": 0}).to_list(5000)
+    # Busca as vendas completas
+    sales_list = await db.sales.find(sales_query, {"_id": 0}).sort("data", -1).to_list(5000)
     
+    # Processa datas das vendas para garantir formato correto
+    for s in sales_list:
+        if isinstance(s.get('data'), str):
+            s['data'] = datetime.fromisoformat(s['data'])
+
     summary = {"Dinheiro": 0, "Pix": 0, "Cartao": 0, "Credito": 0}
     vendas_por_vendedora = {}
     
+    # Loop para cálculos (Ignorando estornadas/trocas SOMENTE PARA OS TOTAIS)
+    sales_count = 0
     for sale in sales_list:
+        # Pula estornadas e trocas na soma dos totais financeiros
+        if sale.get('estornada') or sale.get('is_troca'):
+            continue
+
+        sales_count += 1
         valor_venda = sale['total']
         vendedor = sale['vendedor']
         
@@ -1635,7 +1646,7 @@ async def get_fechamento_hoje(filial_id: Optional[str] = None, current_user: Use
     inconsistencia = caixa_dia.get('inconsistencia_abertura', False) if caixa_dia else False
     diferenca = caixa_dia.get('diferenca_abertura', 0.0) if caixa_dia else 0.0
 
-    # 3. Busca Movimentos (Sangrias, Retiradas Gerencia, Suprimentos)
+    # 3. Movimentos
     movimentos = await db.caixa_movimentos.find({
         "filial_id": target_filial_id,
         "data": {"$gte": today_start.isoformat(), "$lte": today_end.isoformat()}
@@ -1645,7 +1656,7 @@ async def get_fechamento_hoje(filial_id: Optional[str] = None, current_user: Use
     total_retiradas_gerencia = sum(m['valor'] for m in movimentos if m['tipo'] == 'retirada_gerencia')
     total_suprimentos = sum(m['valor'] for m in movimentos if m['tipo'] == 'suprimento')
 
-    # 4. Busca Pagamentos de Dívida
+    # 4. Pagamentos de Dívida
     pagamentos_divida = await db.pagamentos_saldo.find({
         "filial_id": target_filial_id,
         "data": {"$gte": today_start.isoformat(), "$lte": today_end.isoformat()}
@@ -1664,27 +1675,21 @@ async def get_fechamento_hoje(filial_id: Optional[str] = None, current_user: Use
         "saldo_inicial": saldo_inicial,
         "inconsistencia_abertura": inconsistencia,
         "diferenca_abertura": diferenca,
-        
-        # Movimentações
         "total_suprimentos": total_suprimentos,
         "total_sangrias": total_sangrias,
         "total_retiradas_gerencia": total_retiradas_gerencia,
         "lista_movimentos": movimentos,
-        
-        # Vendas
         "vendas_por_vendedora": lista_vendedoras,
-        
-        # Totais Financeiros
+        "lista_vendas": sales_list, # <--- ADICIONADO: Lista completa para auditoria
         "total_dinheiro": summary["Dinheiro"],
         "total_pix": summary["Pix"],
         "total_cartao": summary["Cartao"],
         "total_credito": summary["Credito"],
         "total_geral": sum(summary.values()),
-        "num_vendas": len(sales_list),
+        "num_vendas": sales_count,
         "pagamentos_divida": pagamentos_divida,
         "filial_id": target_filial_id
     }
-
 @api_router.get("/fechamento-caixa/historico")
 async def get_historico_fechamentos(
     data_inicio: str, 
