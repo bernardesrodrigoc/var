@@ -1422,12 +1422,12 @@ async def get_pagamentos_detalhados(
         "percentual_comissao": comissao_config.get("percentual_comissao", 1.0)
     }
 
-# ==================== GESTÃO DE CAIXA (ABERTURA/FECHAMENTO) ====================
+# ==================== GESTÃO DE CAIXA (ABERTURA/FECHAMENTO/MOVIMENTOS) ====================
 
 class CaixaMovimentoBase(BaseModel):
     filial_id: str
     usuario: str
-    tipo: str # "sangria" (retirada) ou "suprimento" (entrada extra)
+    tipo: str # "sangria" (gasto), "retirada_gerencia" (lucro), "suprimento" (entrada troco)
     valor: float
     observacao: str
 
@@ -1440,7 +1440,6 @@ class AberturaCaixa(BaseModel):
     valor_inicial: float
     usuario: str
 
-# Modelo unificado para o registro do dia
 class FechamentoCaixaBase(BaseModel):
     vendedora_id: str
     vendedora_nome: str
@@ -1448,7 +1447,10 @@ class FechamentoCaixaBase(BaseModel):
     data: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # Valores financeiros
     saldo_inicial: float = 0.0
-    total_sangrias: float = 0.0
+    total_suprimentos: float = 0.0 # Dinheiro colocado (troco/aporte)
+    total_sangrias: float = 0.0 # Gastos (limpeza/lanche)
+    total_retiradas_gerencia: float = 0.0 # Dinheiro recolhido pela gerencia
+    
     total_dinheiro: float
     total_pix: float
     total_cartao: float
@@ -1457,6 +1459,10 @@ class FechamentoCaixaBase(BaseModel):
     num_vendas: int
     observacoes: Optional[str] = None
     status: str = "aberto" # aberto, fechado
+    
+    # Auditoria
+    inconsistencia_abertura: bool = False # Se o valor de abertura não bateu com o fechamento anterior
+    diferenca_abertura: float = 0.0
 
 class FechamentoCaixa(FechamentoCaixaBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -1467,33 +1473,61 @@ async def abrir_caixa(dados: AberturaCaixa, current_user: User = Depends(get_cur
     start_dt = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
     end_dt = datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc)
 
-    # Verifica se já existe caixa aberto hoje
+    # 1. Verifica se já existe caixa aberto hoje NA FILIAL (Independente do usuario)
     existente = await db.fechamentos_caixa.find_one({
         "filial_id": dados.filial_id,
         "data": {"$gte": start_dt.isoformat(), "$lte": end_dt.isoformat()}
     })
 
     if existente:
-        raise HTTPException(status_code=400, detail="O caixa de hoje já foi aberto.")
+        raise HTTPException(status_code=400, detail="O caixa desta filial já foi aberto hoje.")
 
-    # Cria o registro inicial do dia
+    # 2. Verifica inconsistência com o dia anterior
+    # Busca o último fechamento desta filial (excluindo hoje)
+    ultimo_fechamento = await db.fechamentos_caixa.find_one(
+        {"filial_id": dados.filial_id, "status": "fechado"},
+        sort=[("data", -1)]
+    )
+
+    inconsistencia = False
+    diferenca = 0.0
+
+    if ultimo_fechamento:
+        # Calcula quanto deveria ter ficado na gaveta ontem
+        # Dinheiro Final Ontem = Saldo Inicial + Vendas Dinheiro + Suprimentos - Sangrias - Retiradas Gerencia
+        dinheiro_ontem = (
+            ultimo_fechamento.get('saldo_inicial', 0) +
+            ultimo_fechamento.get('total_dinheiro', 0) +
+            ultimo_fechamento.get('total_suprimentos', 0) -
+            ultimo_fechamento.get('total_sangrias', 0) -
+            ultimo_fechamento.get('total_retiradas_gerencia', 0)
+        )
+        
+        # Compara com o valor que está sendo informado agora na abertura
+        if abs(dinheiro_ontem - dados.valor_inicial) > 0.50: # Margem de 50 centavos
+            inconsistencia = True
+            diferenca = dados.valor_inicial - dinheiro_ontem
+
+    # 3. Cria o registro inicial do dia
     novo_caixa = FechamentoCaixa(
         vendedora_id=current_user.id,
         vendedora_nome=dados.usuario,
         filial_id=dados.filial_id,
         saldo_inicial=dados.valor_inicial,
         total_dinheiro=0, total_pix=0, total_cartao=0, total_credito=0, total_geral=0, num_vendas=0,
-        status="aberto"
+        status="aberto",
+        inconsistencia_abertura=inconsistencia,
+        diferenca_abertura=diferenca
     )
     
     doc = novo_caixa.model_dump()
     doc['data'] = doc['data'].isoformat()
     await db.fechamentos_caixa.insert_one(doc)
     
-    return {"message": "Caixa aberto com sucesso"}
+    return {"message": "Caixa aberto com sucesso", "inconsistencia": inconsistencia}
 
-@api_router.post("/caixa/sangria")
-async def registrar_sangria(movimento: CaixaMovimentoBase, current_user: User = Depends(get_current_active_user)):
+@api_router.post("/caixa/movimento")
+async def registrar_movimento(movimento: CaixaMovimentoBase, current_user: User = Depends(get_current_active_user)):
     mov_obj = CaixaMovimento(**movimento.model_dump())
     doc = mov_obj.model_dump()
     doc['data'] = doc['data'].isoformat()
@@ -1502,7 +1536,7 @@ async def registrar_sangria(movimento: CaixaMovimentoBase, current_user: User = 
 
 @api_router.post("/fechamento-caixa")
 async def salvar_fechamento(fechamento: FechamentoCaixaBase, current_user: User = Depends(get_current_active_user)):
-    # Lógica de UPSERT (Atualizar se existir, Criar se não)
+    # Lógica de UPSERT
     today = datetime.now(timezone.utc).date()
     start_dt = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
     end_dt = datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc)
@@ -1512,31 +1546,34 @@ async def salvar_fechamento(fechamento: FechamentoCaixaBase, current_user: User 
         "data": {"$gte": start_dt.isoformat(), "$lte": end_dt.isoformat()}
     }
 
-    # Prepara dados para salvar
-    dados_atualizacao = fechamento.model_dump(exclude={'id', 'data'}) # Não sobrescreve ID nem Data de criação original
-    dados_atualizacao['status'] = 'fechado' # Marca como fechado
+    # Atualiza apenas os campos financeiros, mantendo quem abriu e o saldo inicial
+    dados_atualizacao = fechamento.model_dump(exclude={'id', 'data', 'saldo_inicial', 'inconsistencia_abertura', 'diferenca_abertura'})
+    dados_atualizacao['status'] = 'fechado'
     
-    # Tenta atualizar
     result = await db.fechamentos_caixa.update_one(query, {"$set": dados_atualizacao})
 
     if result.matched_count == 0:
-        # Se não existia (abriu e fechou na hora sem abrir formalmente), cria um novo
+        # Fallback caso não tenha aberto (raro com a nova lógica)
         fecha_obj = FechamentoCaixa(**fechamento.model_dump())
         doc = fecha_obj.model_dump()
         doc['data'] = doc['data'].isoformat()
         await db.fechamentos_caixa.insert_one(doc)
         return {"message": "Fechamento criado com sucesso"}
     
-    return {"message": "Fechamento atualizado com sucesso (sobrescrito)"}
+    return {"message": "Fechamento atualizado com sucesso"}
 
 @api_router.get("/fechamento-caixa/hoje")
-async def get_fechamento_hoje(current_user: User = Depends(get_current_active_user)):
+async def get_fechamento_hoje(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
     today = datetime.now(timezone.utc).date()
-    filial_id = current_user.filial_id or "default"
     
-    # 1. Busca Vendas do Dia (Detalhado por Vendedora)
-    # ------------------------------------------------
-    users_same_filial = await db.users.find({"filial_id": filial_id}, {"_id": 0, "full_name": 1}).to_list(100)
+    # Se não passou filial_id na query, usa a do usuário. 
+    # ISSO CORRIGE O PROBLEMA DO ADMIN: O Frontend deve passar a filial selecionada.
+    target_filial_id = filial_id if filial_id else current_user.filial_id
+    if not target_filial_id:
+        target_filial_id = "default"
+    
+    # 1. Busca Vendas do Dia
+    users_same_filial = await db.users.find({"filial_id": target_filial_id}, {"_id": 0, "full_name": 1}).to_list(100)
     vendedores_filial = [u['full_name'] for u in users_same_filial]
     
     sales_query = {
@@ -1548,7 +1585,6 @@ async def get_fechamento_hoje(current_user: User = Depends(get_current_active_us
 
     sales_list = await db.sales.find(sales_query, {"_id": 0}).to_list(5000)
     
-    # Processamento em memória para garantir precisão (Misto, etc)
     summary = {"Dinheiro": 0, "Pix": 0, "Cartao": 0, "Credito": 0}
     vendas_por_vendedora = {}
     
@@ -1556,13 +1592,11 @@ async def get_fechamento_hoje(current_user: User = Depends(get_current_active_us
         valor_venda = sale['total']
         vendedor = sale['vendedor']
         
-        # Agrupa por vendedora
         if vendedor not in vendas_por_vendedora:
             vendas_por_vendedora[vendedor] = {"total": 0, "qtd": 0}
         vendas_por_vendedora[vendedor]["total"] += valor_venda
         vendas_por_vendedora[vendedor]["qtd"] += 1
 
-        # Soma totais por tipo
         if sale['modalidade_pagamento'] == "Misto" and 'pagamentos' in sale:
             for p in sale['pagamentos']:
                 if p['modalidade'] in summary:
@@ -1572,55 +1606,59 @@ async def get_fechamento_hoje(current_user: User = Depends(get_current_active_us
             if tipo in summary:
                 summary[tipo] += valor_venda
 
-    # 2. Busca Dados do Caixa (Saldo Inicial e Status)
-    # ------------------------------------------------
+    # 2. Busca Dados do Caixa do Dia
     today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
     today_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc)
     
     caixa_dia = await db.fechamentos_caixa.find_one({
-        "filial_id": filial_id,
+        "filial_id": target_filial_id,
         "data": {"$gte": today_start.isoformat(), "$lte": today_end.isoformat()}
     })
     
     saldo_inicial = caixa_dia.get('saldo_inicial', 0.0) if caixa_dia else 0.0
     status_caixa = caixa_dia.get('status', 'nao_iniciado') if caixa_dia else 'nao_iniciado'
+    inconsistencia = caixa_dia.get('inconsistencia_abertura', False) if caixa_dia else False
+    diferenca = caixa_dia.get('diferenca_abertura', 0.0) if caixa_dia else 0.0
 
-    # 3. Busca Sangrias (Retiradas)
-    # -----------------------------
-    sangrias = await db.caixa_movimentos.find({
-        "filial_id": filial_id,
-        "tipo": "sangria",
+    # 3. Busca Movimentos (Sangrias, Retiradas Gerencia, Suprimentos)
+    movimentos = await db.caixa_movimentos.find({
+        "filial_id": target_filial_id,
         "data": {"$gte": today_start.isoformat(), "$lte": today_end.isoformat()}
     }, {"_id": 0}).to_list(100)
     
-    total_sangrias = sum(s['valor'] for s in sangrias)
+    total_sangrias = sum(m['valor'] for m in movimentos if m['tipo'] == 'sangria')
+    total_retiradas_gerencia = sum(m['valor'] for m in movimentos if m['tipo'] == 'retirada_gerencia')
+    total_suprimentos = sum(m['valor'] for m in movimentos if m['tipo'] == 'suprimento')
 
-    # 4. Busca Pagamentos de Dívida (Entradas)
-    # ----------------------------------------
+    # 4. Busca Pagamentos de Dívida
     pagamentos_divida = await db.pagamentos_saldo.find({
-        "filial_id": filial_id,
+        "filial_id": target_filial_id,
         "data": {"$gte": today_start.isoformat(), "$lte": today_end.isoformat()}
     }, {"_id": 0}).to_list(100)
     
-    # Adiciona pagamentos de dívida ao resumo financeiro
     for pag in pagamentos_divida:
         forma = pag.get('forma_pagamento', 'Dinheiro')
         if forma == "Cartao": summary["Cartao"] += pag.get('valor', 0)
         elif forma in ["Pix", "Transferencia"]: summary["Pix"] += pag.get('valor', 0)
         else: summary["Dinheiro"] += pag.get('valor', 0)
 
-    # Formata lista de vendedoras para o frontend
-    lista_vendedoras = [
-        {"nome": k, "total": v["total"], "qtd": v["qtd"]} 
-        for k, v in vendas_por_vendedora.items()
-    ]
+    lista_vendedoras = [{"nome": k, "total": v["total"], "qtd": v["qtd"]} for k, v in vendas_por_vendedora.items()]
 
     return {
         "status_caixa": status_caixa,
         "saldo_inicial": saldo_inicial,
+        "inconsistencia_abertura": inconsistencia,
+        "diferenca_abertura": diferenca,
+        
+        # Movimentações
+        "total_suprimentos": total_suprimentos,
         "total_sangrias": total_sangrias,
-        "lista_sangrias": sangrias,
+        "total_retiradas_gerencia": total_retiradas_gerencia,
+        "lista_movimentos": movimentos,
+        
+        # Vendas
         "vendas_por_vendedora": lista_vendedoras,
+        
         # Totais Financeiros
         "total_dinheiro": summary["Dinheiro"],
         "total_pix": summary["Pix"],
@@ -1629,7 +1667,7 @@ async def get_fechamento_hoje(current_user: User = Depends(get_current_active_us
         "total_geral": sum(summary.values()),
         "num_vendas": len(sales_list),
         "pagamentos_divida": pagamentos_divida,
-        "filial_id": filial_id
+        "filial_id": target_filial_id
     }
 
 @api_router.get("/fechamento-caixa/historico")
