@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useFilial } from '@/context/FilialContext';
 import { useToast } from '@/components/ui/use-toast';
-import { FileText, Download, Calendar, XCircle, AlertTriangle, DollarSign, CreditCard, Smartphone, Wallet } from 'lucide-react';
+import { FileText, Download, Calendar, XCircle, AlertTriangle, DollarSign, CreditCard, Smartphone, Wallet, ShoppingBag } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '@/lib/api';
 
@@ -13,7 +13,7 @@ export default function Reports() {
   const [inventoryValue, setInventoryValue] = useState(null);
   const [allSales, setAllSales] = useState([]);
   
-  // Date range - default to current month
+  // Datas padrão: Mês atual
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -92,25 +92,21 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
     }
   };
 
-  // --- CÁLCULO DOS TOTAIS POR PAGAMENTO ---
+  // Cálculo dos totais por pagamento
   const paymentTotals = allSales.reduce((acc, sale) => {
-    // Ignora estornos e trocas (que não geram caixa)
     if (sale.estornada || sale.is_troca) return acc;
 
     if (sale.modalidade_pagamento === 'Misto' && sale.pagamentos) {
-      // Se for misto, soma cada parcela individualmente
       sale.pagamentos.forEach(p => {
         const mode = p.modalidade;
         acc[mode] = (acc[mode] || 0) + p.valor;
       });
     } else {
-      // Se for único, soma o total na modalidade
       const mode = sale.modalidade_pagamento;
       acc[mode] = (acc[mode] || 0) + sale.total;
     }
     return acc;
   }, { Dinheiro: 0, Pix: 0, Cartao: 0, Credito: 0 });
-  // ----------------------------------------
 
   if (loading) {
     return (
@@ -192,7 +188,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
         </Card>
       </div>
 
-      {/* --- NOVA SEÇÃO: DETALHAMENTO POR PAGAMENTO --- */}
+      {/* Cards de Pagamento */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-green-50 border-green-200">
           <CardHeader className="pb-2">
@@ -230,7 +226,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
         <Card className="bg-orange-50 border-orange-200">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-orange-800 flex items-center gap-2">
-              <Wallet className="w-4 h-4" /> Crédito (Fiado)
+              <Wallet className="w-4 h-4" /> A Prazo (Fiado)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -238,11 +234,9 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
           </CardContent>
         </Card>
       </div>
-      {/* ----------------------------------------------- */}
 
-      {/* Charts */}
+      {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sales by Vendor */}
         <Card>
           <CardHeader>
             <CardTitle>Vendas por Vendedora</CardTitle>
@@ -266,7 +260,6 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
           </CardContent>
         </Card>
 
-        {/* Pieces Sold by Vendor */}
         <Card>
           <CardHeader>
             <CardTitle>Peças Vendidas por Vendedora</CardTitle>
@@ -336,13 +329,17 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
           {allSales.length > 0 ? (
             <div className="h-[600px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
               {allSales.map((sale) => (
-                <div key={sale.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-300 transition-colors">
+                <div key={sale.id} className="flex flex-col md:flex-row items-start justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-300 transition-colors">
+                  
+                  {/* COLUNA DA ESQUERDA: INFO DA VENDA + ITENS */}
                   <div className="flex-1 w-full">
+                    
+                    {/* Cabeçalho da Venda */}
                     <div className="flex items-center gap-3 flex-wrap">
                       <p className="font-bold text-gray-900 text-lg">{sale.vendedor}</p>
                       
                       <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
-                        {sale.modalidade_pagamento}
+                        {sale.modalidade_pagamento === 'Credito' ? 'A Prazo' : sale.modalidade_pagamento}
                       </span>
                       
                       {sale.estornada && (
@@ -368,18 +365,40 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                       )}
                     </div>
                     
+                    {/* Detalhes Data/Cliente */}
                     <div className="flex justify-between md:justify-start md:gap-8 mt-2 text-sm text-gray-600">
                       <span>{formatDate(sale.data)} às {sale.hora}</span>
-                      <span>
-                        {sale.items.length} {sale.items.length === 1 ? 'item' : 'itens'}
-                      </span>
                       {sale.cliente_nome && (
                         <span className="font-medium text-gray-800">Cliente: {sale.cliente_nome}</span>
                       )}
                     </div>
+
+                    {/* --- LISTA DE ITENS VENDIDOS --- */}
+                    <div className="mt-3 bg-white border border-gray-200 rounded-md p-3 max-w-2xl shadow-sm">
+                      <p className="text-xs font-semibold text-gray-500 mb-2 uppercase flex items-center gap-1">
+                        <ShoppingBag className="w-3 h-3"/> Itens da Venda ({sale.items.length})
+                      </p>
+                      <ul className="space-y-1">
+                        {sale.items.map((item, idx) => (
+                          <li key={idx} className="text-sm text-gray-700 flex justify-between border-b border-gray-50 last:border-0 pb-1 last:pb-0">
+                            <span>
+                              <span className="font-bold text-indigo-600 mr-2">{item.quantidade}x</span>
+                              <span className="font-mono text-xs text-gray-500 mr-2">[{item.codigo}]</span>
+                              {item.descricao}
+                            </span>
+                            <span className="text-gray-500 text-xs">
+                              {formatCurrency(item.subtotal || (item.preco_venda * item.quantidade))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    {/* ------------------------------- */}
+
                   </div>
                   
-                  <div className="flex items-center justify-between w-full md:w-auto gap-4 mt-3 md:mt-0">
+                  {/* COLUNA DA DIREITA: VALORES E AÇÕES */}
+                  <div className="flex flex-col items-end gap-2 mt-4 md:mt-0 min-w-[150px]">
                     <div className="text-right">
                       <p className={`text-xl font-bold ${sale.estornada ? 'text-red-600 line-through decoration-2' : 'text-indigo-600'}`}>
                         {formatCurrency(sale.total)}
@@ -394,10 +413,10 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEstornar(sale.id, sale)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-100 hover:border-red-200 w-full"
                         title="Estornar venda (cancelar)"
                       >
-                        <AlertTriangle className="w-4 h-4 mr-1" />
+                        <AlertTriangle className="w-4 h-4 mr-2" />
                         Estornar
                       </Button>
                     )}
