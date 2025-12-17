@@ -78,23 +78,31 @@ export default function Layout() {
           {/* Navigation */}
           {/* ADICIONADO: overflow-y-auto para permitir rolagem apenas nos links */}
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => (
-              <NavLink
-                key={item.name}
-                to={item.href}
-                data-testid={`nav-${item.name.toLowerCase()}`}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`
-                }
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="font-medium">{item.name}</span>
-              </NavLink>
-            ))}
+            {navigation.map((item) => {
+              // --- LÓGICA NOVA: ESCONDER TRANSFERÊNCIAS DE VENDEDORAS ---
+              if (item.name === 'Transferências' && user.role === 'vendedora') {
+                return null;
+              }
+              // -----------------------------------------------------------
+
+              return (
+                <NavLink
+                  key={item.name}
+                  to={item.href}
+                  data-testid={`nav-${item.name.toLowerCase()}`}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      isActive
+                        ? 'bg-indigo-50 text-indigo-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`
+                  }
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="font-medium">{item.name}</span>
+                </NavLink>
+              );
+            })}
           </nav>
 
           {/* Filial Info */}
