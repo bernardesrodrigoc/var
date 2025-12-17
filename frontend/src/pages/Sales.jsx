@@ -685,7 +685,7 @@ export default function SalesAdvanced() {
                         <SelectItem value="Pix">
                           <div className="flex items-center gap-2"><Smartphone className="w-4 h-4" /> Pix</div>
                         </SelectItem>
-                        <SelectItem value="Credito">Crédito da Loja</SelectItem>
+                        <SelectItem value="Credito">A Prazo</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
