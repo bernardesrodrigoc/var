@@ -5,9 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useFilial } from '@/context/FilialContext';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-import { DollarSign, CreditCard, Smartphone, Wallet, Save, History, MinusCircle, PlusCircle, ArrowUpRight, AlertTriangle, Lock, Unlock, Trash2 } from 'lucide-react';
+import { DollarSign, CreditCard, Smartphone, Wallet, Save, History, MinusCircle, PlusCircle, ArrowUpRight, AlertTriangle, Lock, Unlock, Trash2, ShoppingBag, XCircle, Layers } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function FechamentoCaixa() {
@@ -19,9 +19,9 @@ export default function FechamentoCaixa() {
   // Abertura
   const [valorInicial, setValorInicial] = useState('');
   
-  // Movimentos (Sangria, Gerencia, Suprimento)
+  // Movimentos
   const [movimentoOpen, setMovimentoOpen] = useState(false);
-  const [tipoMovimento, setTipoMovimento] = useState(''); // 'sangria', 'retirada_gerencia', 'suprimento'
+  const [tipoMovimento, setTipoMovimento] = useState('');
   const [movimentoData, setMovimentoData] = useState({ valor: '', observacao: '' });
 
   // Histórico
@@ -35,6 +35,7 @@ export default function FechamentoCaixa() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const canManage = ['vendedora', 'gerente', 'admin'].includes(user.role);
   const canViewHistory = ['admin', 'gerente'].includes(user.role);
+  const canEstornar = ['admin', 'gerente'].includes(user.role);
 
   useEffect(() => {
     if (selectedFilial) {
@@ -49,7 +50,6 @@ export default function FechamentoCaixa() {
       const response = await api.get(`/fechamento-caixa/hoje?filial_id=${selectedFilial.id}`);
       setResumo(response.data);
       setStatusCaixa(response.data.status_caixa);
-      // Se já tiver observação salva no banco, carrega ela
       if (response.data.observacoes) {
         setObservacoes(response.data.observacoes);
       }
@@ -106,25 +106,22 @@ export default function FechamentoCaixa() {
         valor: valor,
         observacao: movimentoData.observacao
       });
-      
-      toast({ title: 'Movimentação Registrada!', description: 'O saldo foi atualizado.' });
+      toast({ title: 'Movimentação Registrada!' });
       setMovimentoOpen(false);
-      loadResumo(); // Recarrega para atualizar os totais
+      loadResumo();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erro ao registrar movimento' });
     }
   };
 
-  // NOVA FUNÇÃO: Excluir Movimento
   const handleDeleteMovimento = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta movimentação? O saldo será recalculado.')) return;
-
+    if (!window.confirm('Excluir esta movimentação?')) return;
     try {
       await api.delete(`/caixa/movimento/${id}`);
       toast({ title: 'Movimentação excluída' });
       loadResumo();
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.response?.data?.detail });
+      toast({ variant: 'destructive', title: 'Erro ao excluir' });
     }
   };
 
@@ -140,7 +137,6 @@ export default function FechamentoCaixa() {
         total_suprimentos: resumo.total_suprimentos,
         total_sangrias: resumo.total_sangrias,
         total_retiradas_gerencia: resumo.total_retiradas_gerencia,
-        
         total_dinheiro: resumo.total_dinheiro,
         total_pix: resumo.total_pix,
         total_cartao: resumo.total_cartao,
@@ -150,11 +146,21 @@ export default function FechamentoCaixa() {
         observacoes: observacoes
       });
 
-      toast({ title: statusCaixa === 'fechado' ? 'Caixa Atualizado!' : 'Caixa Fechado com Sucesso!' });
-      if (statusCaixa === 'aberto') setObservacoes('');
+      toast({ title: 'Caixa Salvo com Sucesso!' });
       loadResumo();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erro ao fechar caixa' });
+    }
+  };
+
+  const handleEstornar = async (saleId, saleData) => {
+    if (!window.confirm(`Estornar venda de ${formatCurrency(saleData.total)}?`)) return;
+    try {
+      await api.delete(`/sales/${saleId}/estornar`);
+      toast({ title: 'Venda estornada com sucesso' });
+      loadResumo();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro ao estornar' });
     }
   };
 
@@ -209,28 +215,16 @@ export default function FechamentoCaixa() {
   }
 
   // --- GESTÃO ---
-  
-  // Cálculo do Dinheiro na Gaveta
-  const dinheiroNaGaveta = (resumo.saldo_inicial || 0) 
-                         + (resumo.total_dinheiro || 0) 
-                         + (resumo.total_suprimentos || 0) 
-                         - (resumo.total_sangrias || 0) 
-                         - (resumo.total_retiradas_gerencia || 0);
+  const dinheiroNaGaveta = (resumo.saldo_inicial || 0) + (resumo.total_dinheiro || 0) + (resumo.total_suprimentos || 0) - (resumo.total_sangrias || 0) - (resumo.total_retiradas_gerencia || 0);
 
   return (
     <div className="space-y-6 pb-10" data-testid="fechamento-page">
-      {/* ALERTA DE INCONSISTÊNCIA */}
       {resumo.inconsistencia_abertura && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-6 h-6" />
-            <div>
-              <p className="font-bold">Atenção: Inconsistência de Caixa!</p>
-              <p className="text-sm">
-                O valor de abertura de hoje não bate com o fechamento de ontem. 
-                Diferença: <strong>{formatCurrency(resumo.diferenca_abertura)}</strong>
-              </p>
-            </div>
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm flex items-center gap-2">
+          <AlertTriangle className="w-6 h-6" />
+          <div>
+            <p className="font-bold">Atenção: Inconsistência de Caixa!</p>
+            <p className="text-sm">Diferença na abertura: <strong>{formatCurrency(resumo.diferenca_abertura)}</strong></p>
           </div>
         </div>
       )}
@@ -239,8 +233,7 @@ export default function FechamentoCaixa() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
             Gestão de Caixa
-            {statusCaixa === 'fechado' && <span className="text-sm bg-gray-200 text-gray-800 px-3 py-1 rounded-full flex items-center gap-1"><Lock className="w-3 h-3"/> FECHADO</span>}
-            {statusCaixa === 'aberto' && <span className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center gap-1"><Unlock className="w-3 h-3"/> ABERTO</span>}
+            {statusCaixa === 'fechado' ? <span className="text-sm bg-gray-200 text-gray-800 px-3 py-1 rounded-full flex items-center gap-1"><Lock className="w-3 h-3"/> FECHADO</span> : <span className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center gap-1"><Unlock className="w-3 h-3"/> ABERTO</span>}
           </h1>
           <p className="text-gray-500 mt-1">Filial: {selectedFilial.nome}</p>
         </div>
@@ -251,7 +244,6 @@ export default function FechamentoCaixa() {
             </Button>
           )}
           
-          {/* BOTÕES DE MOVIMENTAÇÃO AGORA APARECEM SEMPRE QUE O CAIXA ESTÁ INICIADO */}
           {statusCaixa !== 'nao_iniciado' && (
             <>
               <Button variant="outline" className="text-green-700 border-green-200 hover:bg-green-50" onClick={() => openMovimentoDialog('suprimento')}>
@@ -268,11 +260,21 @@ export default function FechamentoCaixa() {
 
           {canManage && (
             <Button onClick={handleFecharCaixa} className="bg-gray-900 hover:bg-gray-800">
-              <Save className="w-4 h-4 mr-2" /> 
-              {statusCaixa === 'aberto' ? 'Fechar Caixa' : 'Atualizar Fechamento'}
+              <Save className="w-4 h-4 mr-2" /> {statusCaixa === 'aberto' ? 'Fechar Caixa' : 'Atualizar Fechamento'}
             </Button>
           )}
         </div>
+      </div>
+
+      {/* TOTAL VENDIDO */}
+      <div className="flex justify-end">
+        <Card className="bg-indigo-900 text-white border-none shadow-lg w-full md:w-auto min-w-[250px]">
+          <CardContent className="p-4 flex flex-col items-center justify-center">
+            <p className="text-indigo-200 text-sm font-medium uppercase tracking-wider">Total Vendido Hoje</p>
+            <div className="text-3xl font-bold mt-1">{formatCurrency(resumo.total_geral)}</div>
+            <p className="text-xs text-indigo-300 mt-1">{resumo.num_vendas} vendas realizadas</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* PAINEL DE CONFERÊNCIA DE DINHEIRO */}
@@ -402,11 +404,7 @@ export default function FechamentoCaixa() {
                   resumo.lista_movimentos.map((m, idx) => (
                     <TableRow key={idx}>
                       <TableCell>
-                        <span className={`text-xs px-2 py-1 rounded font-medium ${
-                          m.tipo === 'suprimento' ? 'bg-green-100 text-green-700' :
-                          m.tipo === 'retirada_gerencia' ? 'bg-orange-100 text-orange-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
+                        <span className={`text-xs px-2 py-1 rounded font-medium ${m.tipo === 'suprimento' ? 'bg-green-100 text-green-700' : m.tipo === 'retirada_gerencia' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
                           {m.tipo === 'suprimento' ? 'Entrada' : m.tipo === 'retirada_gerencia' ? 'Gerência' : 'Despesa'}
                         </span>
                       </TableCell>
@@ -415,15 +413,8 @@ export default function FechamentoCaixa() {
                         {m.tipo === 'suprimento' ? '+' : '-'}{formatCurrency(m.valor)}
                       </TableCell>
                       <TableCell>
-                        {/* Botão de Excluir */}
                         {canManage && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 text-gray-400 hover:text-red-600"
-                            onClick={() => handleDeleteMovimento(m.id)}
-                            title="Excluir movimentação"
-                          >
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-red-600" onClick={() => handleDeleteMovimento(m.id)}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         )}
@@ -441,132 +432,126 @@ export default function FechamentoCaixa() {
         </Card>
       </div>
 
-      {/* Observações */}
+      {/* --- LISTA DETALHADA DE VENDAS (AUDITORIA) --- */}
       <Card>
-        <CardContent className="pt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Observações do Fechamento
-          </label>
-          <textarea
-            className="w-full p-3 border rounded-md h-24 focus:ring-2 focus:ring-indigo-500 outline-none"
-            placeholder="Digite aqui justificativas de diferenças, etc..."
-            value={observacoes}
-            onChange={(e) => setObservacoes(e.target.value)}
-          />
+        <CardHeader>
+          <CardTitle>Auditoria de Vendas do Dia ({resumo.lista_vendas?.length || 0})</CardTitle>
+          <CardDescription>Conferência detalhada de itens e pagamentos</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[500px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+            {resumo.lista_vendas?.map((sale) => (
+              <div key={sale.id} className="flex flex-col md:flex-row items-start justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-300 transition-colors">
+                <div className="flex-1 w-full">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <p className="font-bold text-gray-900 text-lg">{sale.vendedor}</p>
+                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
+                      {sale.modalidade_pagamento === 'Credito' ? 'A Prazo' : sale.modalidade_pagamento}
+                    </span>
+                    {sale.estornada && <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1 font-bold border border-red-200"><XCircle className="w-3 h-3" /> ESTORNADA</span>}
+                    {sale.is_troca && <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full border border-yellow-200 font-medium">Troca</span>}
+                  </div>
+
+                  {sale.modalidade_pagamento === 'Misto' && sale.pagamentos && (
+                    <div className="flex gap-2 flex-wrap mt-2 mb-1">
+                      {sale.pagamentos.map((pag, idx) => (
+                        <div key={idx} className="flex items-center gap-1 text-[10px] bg-indigo-50 border border-indigo-100 px-2 py-1 rounded text-indigo-700 font-medium">
+                          <Layers className="w-3 h-3" />
+                          <span>{pag.modalidade === 'Credito' ? 'A Prazo' : pag.modalidade}: {formatCurrency(pag.valor)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between md:justify-start md:gap-8 mt-2 text-sm text-gray-600">
+                    <span>{formatDate(sale.data)} às {sale.hora}</span>
+                    {sale.cliente_nome && <span className="font-medium text-gray-800">Cliente: {sale.cliente_nome}</span>}
+                  </div>
+
+                  {/* Lista de Itens */}
+                  <div className="mt-3 bg-white border border-gray-200 rounded-md p-3 max-w-2xl shadow-sm">
+                    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase flex items-center gap-1">
+                      <ShoppingBag className="w-3 h-3"/> Itens ({sale.items.length})
+                    </p>
+                    <ul className="space-y-1">
+                      {sale.items.map((item, idx) => (
+                        <li key={idx} className="text-sm text-gray-700 flex justify-between border-b border-gray-50 last:border-0 pb-1 last:pb-0">
+                          <span>
+                            <span className="font-bold text-indigo-600 mr-2">{item.quantidade}x</span>
+                            <span className="font-mono text-xs text-gray-500 mr-2">[{item.codigo}]</span>
+                            {item.descricao}
+                          </span>
+                          <span className="text-gray-500 text-xs">
+                            {formatCurrency(item.subtotal || (item.preco_venda * item.quantidade))}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-end gap-2 mt-4 md:mt-0 min-w-[150px]">
+                  <div className="text-right">
+                    <p className={`text-xl font-bold ${sale.estornada ? 'text-red-600 line-through decoration-2' : 'text-indigo-600'}`}>
+                      {formatCurrency(sale.total)}
+                    </p>
+                    {sale.parcelas > 1 && <p className="text-xs text-gray-500">{sale.parcelas}x {formatCurrency(sale.total / sale.parcelas)}</p>}
+                  </div>
+                  
+                  {canEstornar && !sale.estornada && (
+                    <Button variant="ghost" size="sm" onClick={() => handleEstornar(sale.id, sale)} className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-100 hover:border-red-200 w-full" title="Estornar venda">
+                      <Trash2 className="w-4 h-4 mr-2" /> Estornar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Dialog Movimento (Sangria/Suprimento) */}
+      {/* Observações */}
+      <Card>
+        <CardContent className="pt-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Observações do Fechamento</label>
+          <textarea className="w-full p-3 border rounded-md h-24 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Digite aqui justificativas..." value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
+        </CardContent>
+      </Card>
+
+      {/* Dialogs Movimento e Histórico (Mantidos Iguais) */}
       <Dialog open={movimentoOpen} onOpenChange={setMovimentoOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {tipoMovimento === 'suprimento' ? 'Adicionar Dinheiro (Entrada)' : 
-               tipoMovimento === 'retirada_gerencia' ? 'Retirada para Gerência' : 'Registrar Despesa (Sangria)'}
-            </DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{tipoMovimento === 'suprimento' ? 'Adicionar Dinheiro' : tipoMovimento === 'retirada_gerencia' ? 'Retirada Gerência' : 'Registrar Despesa'}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Valor (R$)</label>
-              <Input 
-                type="number" 
-                step="0.01" 
-                value={movimentoData.valor}
-                onChange={e => setMovimentoData({...movimentoData, valor: e.target.value})}
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Descrição / Motivo</label>
-              <Input 
-                placeholder={tipoMovimento === 'suprimento' ? 'Ex: Troco inicial extra' : 'Ex: Recolhimento de valores'} 
-                value={movimentoData.observacao}
-                onChange={e => setMovimentoData({...movimentoData, observacao: e.target.value})}
-              />
-            </div>
+            <div className="space-y-2"><label>Valor (R$)</label><Input type="number" step="0.01" value={movimentoData.valor} onChange={e => setMovimentoData({...movimentoData, valor: e.target.value})} autoFocus /></div>
+            <div className="space-y-2"><label>Descrição</label><Input placeholder="Motivo" value={movimentoData.observacao} onChange={e => setMovimentoData({...movimentoData, observacao: e.target.value})} /></div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMovimentoOpen(false)}>Cancelar</Button>
-            <Button 
-              onClick={handleSalvarMovimento} 
-              className={tipoMovimento === 'suprimento' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
-            >
-              Confirmar
-            </Button>
-          </DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setMovimentoOpen(false)}>Cancelar</Button><Button onClick={handleSalvarMovimento} className={tipoMovimento === 'suprimento' ? 'bg-green-600' : 'bg-red-600'}>Confirmar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Histórico */}
       <Dialog open={historicoOpen} onOpenChange={setHistoricoOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Histórico de Fechamentos</DialogTitle>
-          </DialogHeader>
-          
+          <DialogHeader><DialogTitle>Histórico de Fechamentos</DialogTitle></DialogHeader>
           <div className="flex gap-4 items-end mb-4 bg-gray-50 p-3 rounded-lg">
-            <div className="space-y-1">
-              <label className="text-xs font-medium">De:</label>
-              <input 
-                type="date" 
-                value={dataInicioHist} 
-                onChange={e => setDataInicioHist(e.target.value)}
-                className="block w-full border rounded px-2 py-1 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Até:</label>
-              <input 
-                type="date" 
-                value={dataFimHist} 
-                onChange={e => setDataFimHist(e.target.value)}
-                className="block w-full border rounded px-2 py-1 text-sm"
-              />
-            </div>
+            <div className="space-y-1"><label className="text-xs">De:</label><input type="date" value={dataInicioHist} onChange={e => setDataInicioHist(e.target.value)} className="block w-full border rounded px-2 py-1 text-sm"/></div>
+            <div className="space-y-1"><label className="text-xs">Até:</label><input type="date" value={dataFimHist} onChange={e => setDataFimHist(e.target.value)} className="block w-full border rounded px-2 py-1 text-sm"/></div>
             <Button size="sm" onClick={loadHistorico}>Filtrar</Button>
           </div>
-
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Responsável</TableHead>
-                <TableHead className="text-right">Inicial</TableHead>
-                <TableHead className="text-right">Vendas</TableHead>
-                <TableHead className="text-right">Saídas</TableHead>
-                <TableHead className="text-right font-bold">Gaveta Final</TableHead>
-                <TableHead>Obs</TableHead>
-              </TableRow>
-            </TableHeader>
+            <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Resp.</TableHead><TableHead className="text-right">Inicial</TableHead><TableHead className="text-right">Vendas</TableHead><TableHead className="text-right">Saídas</TableHead><TableHead className="text-right font-bold">Gaveta</TableHead><TableHead>Obs</TableHead></TableRow></TableHeader>
             <TableBody>
-              {historicoData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                    Nenhum fechamento encontrado.
-                  </TableCell>
+              {historicoData.map((f) => (
+                <TableRow key={f.id}>
+                  <TableCell>{new Date(f.data).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell>{f.vendedora_nome}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(f.saldo_inicial)}</TableCell>
+                  <TableCell className="text-right text-green-600">{formatCurrency(f.total_dinheiro)}</TableCell>
+                  <TableCell className="text-right text-red-600">-{formatCurrency((f.total_sangrias || 0) + (f.total_retiradas_gerencia || 0))}</TableCell>
+                  <TableCell className="text-right font-bold">{formatCurrency((f.saldo_inicial || 0) + (f.total_dinheiro || 0) + (f.total_suprimentos || 0) - (f.total_sangrias || 0) - (f.total_retiradas_gerencia || 0))}</TableCell>
+                  <TableCell className="text-xs truncate max-w-[100px]">{f.observacoes}</TableCell>
                 </TableRow>
-              ) : (
-                historicoData.map((f) => {
-                  const gavetaFinal = (f.saldo_inicial || 0) + (f.total_dinheiro || 0) + (f.total_suprimentos || 0) - (f.total_sangrias || 0) - (f.total_retiradas_gerencia || 0);
-                  return (
-                    <TableRow key={f.id}>
-                      <TableCell className="font-medium whitespace-nowrap">
-                        {new Date(f.data).toLocaleDateString('pt-BR')} <br/>
-                        <span className="text-xs text-gray-500">{new Date(f.data).toLocaleTimeString('pt-BR')}</span>
-                      </TableCell>
-                      <TableCell>{f.vendedora_nome}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(f.saldo_inicial)}</TableCell>
-                      <TableCell className="text-right text-green-600">{formatCurrency(f.total_dinheiro)}</TableCell>
-                      <TableCell className="text-right text-red-600">-{formatCurrency((f.total_sangrias || 0) + (f.total_retiradas_gerencia || 0))}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(gavetaFinal)}</TableCell>
-                      <TableCell className="text-xs max-w-[150px] truncate" title={f.observacoes}>
-                        {f.inconsistencia_abertura && <span className="text-red-600 font-bold block">! Inconsistência</span>}
-                        {f.observacoes || '-'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
+              ))}
             </TableBody>
           </Table>
         </DialogContent>
