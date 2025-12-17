@@ -1887,20 +1887,24 @@ async def get_transferencias(
     limit: int = 100, 
     current_user: User = Depends(get_current_active_user)
 ):
-    # Only admin/gerente can see all transferencias
+    # Apenas admin/gerente podem ver
     if current_user.role not in ["admin", "gerente"]:
         raise HTTPException(status_code=403, detail="Sem permissão para ver transferências")
     
-    query = {}
+    # Filtra apenas as retiradas de gerência na tabela unificada de caixa
+    query = {"tipo": "retirada_gerencia"} 
+    
     if filial_id:
         query["filial_id"] = filial_id
     
-    # Add pagination
-    transfs = await db.transferencias.find(query, {"_id": 0}).skip(skip).limit(min(limit, 500)).to_list(limit)
-    for t in transfs:
-        if isinstance(t.get('data'), str):
-            t['data'] = datetime.fromisoformat(t['data'])
-    return transfs
+    # Busca na coleção NOVA de movimentos de caixa
+    movimentos = await db.caixa_movimentos.find(query, {"_id": 0}).sort("data", -1).skip(skip).limit(limit).to_list(limit)
+    
+    for m in movimentos:
+        if isinstance(m.get('data'), str):
+            m['data'] = datetime.fromisoformat(m['data'])
+            
+    return movimentos
 
 @api_router.put("/transferencias/{transf_id}")
 async def update_transferencia(transf_id: str, transf_data: TransferenciaBase, current_user: User = Depends(get_current_active_user)):
