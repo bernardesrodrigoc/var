@@ -1,20 +1,28 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useFilial } from '@/context/FilialContext';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-import { DollarSign, CreditCard, Smartphone, Wallet, Save, Calendar, History, Eye } from 'lucide-react';
+import { DollarSign, CreditCard, Smartphone, Wallet, Save, History, MinusCircle, Lock, Unlock } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function FechamentoCaixa() {
+  const [statusCaixa, setStatusCaixa] = useState('nao_iniciado'); // nao_iniciado, aberto, fechado
   const [resumo, setResumo] = useState(null);
-  const [vendasDetalhadas, setVendasDetalhadas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [observacoes, setObservacoes] = useState('');
   
+  // Estados para Abertura
+  const [valorInicial, setValorInicial] = useState('');
+  
+  // Estados para Sangria
+  const [sangriaOpen, setSangriaOpen] = useState(false);
+  const [sangriaData, setSangriaData] = useState({ valor: '', observacao: '' });
+
   // Estados para Histórico
   const [historicoOpen, setHistoricoOpen] = useState(false);
   const [historicoData, setHistoricoData] = useState([]);
@@ -24,42 +32,8 @@ export default function FechamentoCaixa() {
   const { selectedFilial } = useFilial();
   const { toast } = useToast();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const canSave = user.role === 'vendedora' || user.role === 'gerente';
+  const canManage = user.role === 'vendedora' || user.role === 'gerente' || user.role === 'admin';
   const canViewHistory = user.role === 'admin' || user.role === 'gerente';
-
-  // --- LÓGICA DE CÁLCULO LOCAL PARA OS CARDS ---
-  // Isso resolve o problema da venda mista não aparecer nos cards
-  const totaisCalculados = vendasDetalhadas.reduce((acc, venda) => {
-    // Se for mista, percorre os pagamentos internos
-    if (venda.modalidade_pagamento === 'Misto' && venda.pagamentos) {
-      venda.pagamentos.forEach(pag => {
-        const tipo = pag.modalidade; // Dinheiro, Pix, Cartao, Credito
-        if (acc[tipo] !== undefined) {
-          acc[tipo] += pag.valor;
-        }
-      });
-    } else {
-      // Venda normal (única forma)
-      const tipo = venda.modalidade_pagamento;
-      // Mapeia tipos do banco para as chaves do acumulador
-      if (tipo === 'Dinheiro') acc.Dinheiro += venda.total;
-      else if (tipo === 'Pix') acc.Pix += venda.total;
-      else if (tipo === 'Cartao') acc.Cartao += venda.total;
-      else if (tipo === 'Credito') acc.Credito += venda.total;
-    }
-    return acc;
-  }, { Dinheiro: 0, Pix: 0, Cartao: 0, Credito: 0 });
-
-  // Adiciona os pagamentos de saldo devedor (recebimentos de dívida) aos totais
-  if (resumo?.pagamentos) {
-    resumo.pagamentos.forEach(pag => {
-      const tipo = pag.forma_pagamento;
-      if (tipo === 'Dinheiro') totaisCalculados.Dinheiro += pag.valor;
-      else if (tipo === 'Pix' || tipo === 'Transferencia') totaisCalculados.Pix += pag.valor;
-      else if (tipo === 'Cartao') totaisCalculados.Cartao += pag.valor;
-    });
-  }
-  // ----------------------------------------------
 
   useEffect(() => {
     if (selectedFilial) {
@@ -71,75 +45,89 @@ export default function FechamentoCaixa() {
     if (!selectedFilial) return;
     setLoading(true);
     try {
-      // 1. Busca resumo básico do backend
-      const fechamentoResponse = await api.get('/fechamento-caixa/hoje');
-      const fechamento = fechamentoResponse.data;
-      
-      setResumo({
-        total_dinheiro: fechamento.total_dinheiro,
-        total_pix: fechamento.total_pix,
-        total_cartao: fechamento.total_cartao,
-        total_credito: fechamento.total_credito,
-        total_geral: fechamento.total_geral,
-        num_vendas: fechamento.num_vendas,
-        num_pagamentos: fechamento.num_pagamentos || 0,
-        total_pagamentos: fechamento.total_pagamentos || 0,
-        pagamentos: fechamento.pagamentos || []
-      });
-      
-      // 2. Busca TODAS as vendas do dia para detalhamento e cálculo correto dos cards
-      const hoje = new Date().toISOString().split('T')[0];
-      const fimDoDia = `${hoje}T23:59:59`;
-      
-      const salesResponse = await api.get(
-        `/sales?filial_id=${selectedFilial.id}&data_inicio=${hoje}&data_fim=${fimDoDia}&limit=5000`
-      );
-      
-      const vendasHoje = salesResponse.data.filter(sale => {
-        return !sale.estornada && !sale.is_troca;
-      });
-      
-      setVendasDetalhadas(vendasHoje);
-
+      const response = await api.get('/fechamento-caixa/hoje');
+      setResumo(response.data);
+      setStatusCaixa(response.data.status_caixa);
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'Não foi possível carregar o resumo do caixa',
-      });
+      console.error(error);
+      toast({ variant: 'destructive', title: 'Erro ao carregar caixa' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSalvarFechamento = async () => {
-    if (!window.confirm('Confirma o fechamento do caixa? Certifique-se que os valores físicos batem com o sistema.')) return;
+  const handleAbrirCaixa = async () => {
+    const valor = parseFloat(valorInicial);
+    if (isNaN(valor)) {
+      toast({ variant: 'destructive', title: 'Valor inválido' });
+      return;
+    }
+
+    try {
+      await api.post('/caixa/abrir', {
+        filial_id: selectedFilial.id,
+        valor_inicial: valor,
+        usuario: user.full_name
+      });
+      toast({ title: 'Caixa Aberto!', description: `Iniciado com ${formatCurrency(valor)}` });
+      loadResumo();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro ao abrir caixa', description: error.response?.data?.detail });
+    }
+  };
+
+  const handleSalvarSangria = async () => {
+    const valor = parseFloat(sangriaData.valor);
+    if (isNaN(valor) || valor <= 0) {
+      toast({ variant: 'destructive', title: 'Valor inválido' });
+      return;
+    }
+    if (!sangriaData.observacao) {
+      toast({ variant: 'destructive', title: 'Informe o motivo (ex: Padaria)' });
+      return;
+    }
+
+    try {
+      await api.post('/caixa/sangria', {
+        filial_id: selectedFilial.id,
+        usuario: user.full_name,
+        tipo: 'sangria',
+        valor: valor,
+        observacao: sangriaData.observacao
+      });
+      toast({ title: 'Sangria Registrada!' });
+      setSangriaOpen(false);
+      setSangriaData({ valor: '', observacao: '' });
+      loadResumo();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro ao registrar sangria' });
+    }
+  };
+
+  const handleFecharCaixa = async () => {
+    if (!window.confirm('Confirma o fechamento do dia? Isso atualizará os valores finais.')) return;
 
     try {
       await api.post('/fechamento-caixa', {
         vendedora_id: user.id,
         vendedora_nome: user.full_name,
         filial_id: selectedFilial.id,
-        total_dinheiro: totaisCalculados.Dinheiro,
-        total_pix: totaisCalculados.Pix,
-        total_cartao: totaisCalculados.Cartao,
-        total_credito: totaisCalculados.Credito,
-        total_geral: totaisCalculados.Dinheiro + totaisCalculados.Pix + totaisCalculados.Cartao + totaisCalculados.Credito,
-        num_vendas: vendasDetalhadas.length,
+        saldo_inicial: resumo.saldo_inicial,
+        total_sangrias: resumo.total_sangrias,
+        total_dinheiro: resumo.total_dinheiro,
+        total_pix: resumo.total_pix,
+        total_cartao: resumo.total_cartao,
+        total_credito: resumo.total_credito,
+        total_geral: resumo.total_geral,
+        num_vendas: resumo.num_vendas,
         observacoes: observacoes
       });
 
-      toast({
-        title: 'Caixa Fechado!',
-        description: 'Os dados foram salvos com sucesso.',
-      });
+      toast({ title: 'Caixa Fechado com Sucesso!' });
       setObservacoes('');
+      loadResumo(); // Atualiza para mostrar status fechado
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'Erro ao salvar fechamento',
-      });
+      toast({ variant: 'destructive', title: 'Erro ao fechar caixa' });
     }
   };
 
@@ -153,65 +141,125 @@ export default function FechamentoCaixa() {
       const response = await api.get(`/fechamento-caixa/historico?data_inicio=${dataInicioHist}&data_fim=${dataFimHist}&filial_id=${selectedFilial.id}`);
       setHistoricoData(response.data);
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'Não foi possível carregar o histórico',
-      });
+      toast({ variant: 'destructive', title: 'Erro ao carregar histórico' });
     }
   };
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-96">Carregando caixa...</div>;
+  if (loading) return <div className="flex justify-center items-center h-96">Carregando...</div>;
+
+  // --- TELA DE ABERTURA DE CAIXA ---
+  if (statusCaixa === 'nao_iniciado') {
+    return (
+      <div className="flex items-center justify-center h-[80vh]">
+        <Card className="w-full max-w-md shadow-lg border-2 border-indigo-100">
+          <CardHeader className="text-center bg-indigo-50/50 pb-8">
+            <div className="mx-auto w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+              <Unlock className="w-8 h-8 text-indigo-600" />
+            </div>
+            <CardTitle className="text-2xl text-indigo-900">Abertura de Caixa</CardTitle>
+            <CardDescription>Informe o valor em dinheiro na gaveta para iniciar o dia.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6 pt-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Fundo de Troco (R$)</label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                className="text-lg h-12"
+                value={valorInicial}
+                onChange={(e) => setValorInicial(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <Button onClick={handleAbrirCaixa} className="w-full h-12 text-lg bg-indigo-600 hover:bg-indigo-700">
+              Abrir Caixa
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
-  // Total Geral Calculado (Soma das modalidades calculadas)
-  const totalGeralCalculado = totaisCalculados.Dinheiro + totaisCalculados.Pix + totaisCalculados.Cartao + totaisCalculados.Credito;
+  // --- TELA DE GESTÃO DO CAIXA (ABERTO OU FECHADO) ---
+  
+  // Cálculo do dinheiro FÍSICO esperado na gaveta
+  const dinheiroEmCaixa = (resumo.saldo_inicial || 0) + (resumo.total_dinheiro || 0) - (resumo.total_sangrias || 0);
 
   return (
-    <div className="space-y-6" data-testid="fechamento-page">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 pb-10" data-testid="fechamento-page">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Fechamento de Caixa</h1>
-          <p className="text-gray-500 mt-1">Conferência e encerramento do dia</p>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            Gestão de Caixa
+            {statusCaixa === 'fechado' && <span className="text-sm bg-red-100 text-red-800 px-3 py-1 rounded-full flex items-center gap-1"><Lock className="w-3 h-3"/> FECHADO</span>}
+            {statusCaixa === 'aberto' && <span className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center gap-1"><Unlock className="w-3 h-3"/> ABERTO</span>}
+          </h1>
+          <p className="text-gray-500 mt-1">Controle diário e conferência de valores</p>
         </div>
         <div className="flex gap-2">
           {canViewHistory && (
             <Button variant="outline" onClick={handleOpenHistorico}>
-              <History className="w-4 h-4 mr-2" />
-              Histórico
+              <History className="w-4 h-4 mr-2" /> Histórico
             </Button>
           )}
-          {canSave && (
-            <Button onClick={handleSalvarFechamento} className="bg-green-600 hover:bg-green-700">
-              <Save className="w-4 h-4 mr-2" />
-              Salvar Fechamento
+          {statusCaixa === 'aberto' && (
+            <Button variant="destructive" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" onClick={() => setSangriaOpen(true)}>
+              <MinusCircle className="w-4 h-4 mr-2" /> Retirada / Sangria
+            </Button>
+          )}
+          {canManage && statusCaixa === 'aberto' && (
+            <Button onClick={handleFecharCaixa} className="bg-gray-900 hover:bg-gray-800">
+              <Save className="w-4 h-4 mr-2" /> Fechar Caixa
+            </Button>
+          )}
+          {canManage && statusCaixa === 'fechado' && (
+            <Button onClick={handleFecharCaixa} variant="outline">
+              <Save className="w-4 h-4 mr-2" /> Atualizar Fechamento
             </Button>
           )}
         </div>
       </div>
 
-      {/* Cards de Resumo (AGORA USANDO OS VALORES CALCULADOS CORRETAMENTE) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-green-50 border-green-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-800">Dinheiro em Caixa</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-900">{formatCurrency(totaisCalculados.Dinheiro)}</div>
-            <p className="text-xs text-green-600 mt-1">Vendas + Pagamentos</p>
-          </CardContent>
-        </Card>
+      {/* PAINEL DE CONFERÊNCIA DE DINHEIRO */}
+      <Card className="border-2 border-green-100 bg-green-50/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-bold text-green-900 flex items-center gap-2">
+            <DollarSign className="w-5 h-5" /> Conferência do Dinheiro (Gaveta)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div className="p-3 bg-white rounded shadow-sm">
+              <p className="text-xs text-gray-500 uppercase font-bold">Saldo Inicial</p>
+              <p className="text-lg font-mono text-gray-700">+{formatCurrency(resumo.saldo_inicial)}</p>
+            </div>
+            <div className="p-3 bg-white rounded shadow-sm">
+              <p className="text-xs text-gray-500 uppercase font-bold">Vendas Dinheiro</p>
+              <p className="text-lg font-mono text-green-600">+{formatCurrency(resumo.total_dinheiro)}</p>
+            </div>
+            <div className="p-3 bg-white rounded shadow-sm">
+              <p className="text-xs text-gray-500 uppercase font-bold">Sangrias (Saídas)</p>
+              <p className="text-lg font-mono text-red-600">-{formatCurrency(resumo.total_sangrias)}</p>
+            </div>
+            <div className="p-3 bg-green-100 rounded shadow-sm border border-green-200">
+              <p className="text-xs text-green-800 uppercase font-bold">Total na Gaveta</p>
+              <p className="text-2xl font-bold text-green-900">{formatCurrency(dinheiroEmCaixa)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
+      {/* Cards de Resumo Geral */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-blue-50 border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-800">Pix / Transf.</CardTitle>
             <Smartphone className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-900">{formatCurrency(totaisCalculados.Pix)}</div>
-            <p className="text-xs text-blue-600 mt-1">Conta Bancária</p>
+            <div className="text-2xl font-bold text-blue-900">{formatCurrency(resumo.total_pix)}</div>
+            <p className="text-xs text-blue-600 mt-1">Na conta bancária</p>
           </CardContent>
         </Card>
 
@@ -221,7 +269,7 @@ export default function FechamentoCaixa() {
             <CreditCard className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-900">{formatCurrency(totaisCalculados.Cartao)}</div>
+            <div className="text-2xl font-bold text-purple-900">{formatCurrency(resumo.total_cartao)}</div>
             <p className="text-xs text-purple-600 mt-1">Crédito e Débito</p>
           </CardContent>
         </Card>
@@ -232,86 +280,127 @@ export default function FechamentoCaixa() {
             <Wallet className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-900">{formatCurrency(totaisCalculados.Credito)}</div>
-            <p className="text-xs text-orange-600 mt-1">Saldo Devedor</p>
+            <div className="text-2xl font-bold text-orange-900">{formatCurrency(resumo.total_credito)}</div>
+            <p className="text-xs text-orange-600 mt-1">Saldo devedor gerado</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex justify-end">
-        <div className="bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg">
-          <span className="text-sm font-medium opacity-80 mr-2">Faturamento Total do Dia:</span>
-          <span className="text-2xl font-bold">{formatCurrency(totalGeralCalculado)}</span>
-        </div>
-      </div>
-
-      {/* Vendas do Dia */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Detalhamento de Vendas ({vendasDetalhadas.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="max-h-[500px] overflow-y-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Vendas por Vendedora */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Vendas por Vendedora</CardTitle>
+          </CardHeader>
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Hora</TableHead>
-                  <TableHead>Vendedor</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Itens</TableHead>
-                  <TableHead>Pagamento</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="text-right">Qtd Vendas</TableHead>
+                  <TableHead className="text-right">Total Vendido</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {resumo.vendas_por_vendedora && resumo.vendas_por_vendedora.length > 0 ? (
+                  resumo.vendas_por_vendedora.map((v, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-medium">{v.nome}</TableCell>
+                      <TableCell className="text-right">{v.qtd}</TableCell>
+                      <TableCell className="text-right font-bold text-indigo-600">{formatCurrency(v.total)}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-gray-500 py-4">Nenhuma venda hoje</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {/* Histórico de Sangrias */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Saídas e Despesas (Sangrias)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Descrição</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {vendasDetalhadas.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                      Nenhuma venda registrada hoje.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  vendasDetalhadas.map((venda) => (
-                    <TableRow key={venda.id}>
-                      <TableCell className="font-medium">{venda.hora}</TableCell>
-                      <TableCell>{venda.vendedor}</TableCell>
-                      <TableCell>{venda.cliente_nome || '-'}</TableCell>
-                      <TableCell>{venda.items.length}</TableCell>
-                      <TableCell>
-                        <span className="px-2 py-1 bg-gray-100 rounded-full text-xs font-medium">
-                          {venda.modalidade_pagamento}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-gray-700">
-                        {formatCurrency(venda.total)}
-                      </TableCell>
+                {resumo.lista_sangrias && resumo.lista_sangrias.length > 0 ? (
+                  resumo.lista_sangrias.map((s, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>{s.observacao}</TableCell>
+                      <TableCell className="text-right text-red-600">-{formatCurrency(s.valor)}</TableCell>
                     </TableRow>
                   ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-center text-gray-500 py-4">Nenhuma retirada hoje</TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>
-          </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Campo de Observações */}
+      <Card>
+        <CardContent className="pt-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Observações do Fechamento
+          </label>
+          <textarea
+            className="w-full p-3 border rounded-md h-24 focus:ring-2 focus:ring-indigo-500 outline-none"
+            placeholder="Digite aqui quebras de caixa, justificativas, etc..."
+            value={observacoes}
+            onChange={(e) => setObservacoes(e.target.value)}
+          />
         </CardContent>
       </Card>
 
-      {/* Campo de Observações para Fechamento */}
-      {canSave && (
-        <Card>
-          <CardContent className="pt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Observações do Fechamento (Quebra de caixa, sangria, justificativas)
-            </label>
-            <textarea
-              className="w-full p-3 border rounded-md h-24 focus:ring-2 focus:ring-indigo-500 outline-none"
-              placeholder="Digite aqui..."
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value)}
-            />
-          </CardContent>
-        </Card>
-      )}
+      {/* Dialog Sangria */}
+      <Dialog open={sangriaOpen} onOpenChange={setSangriaOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Retirada (Sangria)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Valor (R$)</label>
+              <Input 
+                type="number" 
+                step="0.01" 
+                value={sangriaData.valor}
+                onChange={e => setSangriaData({...sangriaData, valor: e.target.value})}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Motivo / Descrição</label>
+              <Input 
+                placeholder="Ex: Compra de material de limpeza" 
+                value={sangriaData.observacao}
+                onChange={e => setSangriaData({...sangriaData, observacao: e.target.value})}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSangriaOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSalvarSangria} className="bg-red-600 hover:bg-red-700">Confirmar Retirada</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* DIALOG DE HISTÓRICO */}
+      {/* Dialog Histórico (IGUAL AO ANTERIOR) */}
       <Dialog open={historicoOpen} onOpenChange={setHistoricoOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -344,18 +433,17 @@ export default function FechamentoCaixa() {
             <TableHeader>
               <TableRow>
                 <TableHead>Data</TableHead>
-                <TableHead>Responsável</TableHead>
-                <TableHead className="text-right">Dinheiro</TableHead>
-                <TableHead className="text-right">Pix</TableHead>
-                <TableHead className="text-right">Cartão</TableHead>
-                <TableHead className="text-right">Total Geral</TableHead>
-                <TableHead>Obs</TableHead>
+                <TableHead>Saldo Inicial</TableHead>
+                <TableHead className="text-right">Vendas</TableHead>
+                <TableHead className="text-right">Sangrias</TableHead>
+                <TableHead className="text-right font-bold">Total Geral</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {historicoData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                     Nenhum fechamento encontrado.
                   </TableCell>
                 </TableRow>
@@ -363,16 +451,22 @@ export default function FechamentoCaixa() {
                 historicoData.map((f) => (
                   <TableRow key={f.id}>
                     <TableCell className="font-medium whitespace-nowrap">
-                      {new Date(f.data).toLocaleDateString('pt-BR')} <br/>
-                      <span className="text-xs text-gray-500">{new Date(f.data).toLocaleTimeString('pt-BR')}</span>
+                      {new Date(f.data).toLocaleDateString('pt-BR')}
                     </TableCell>
-                    <TableCell>{f.vendedora_nome}</TableCell>
-                    <TableCell className="text-right text-green-600">{formatCurrency(f.total_dinheiro)}</TableCell>
-                    <TableCell className="text-right text-blue-600">{formatCurrency(f.total_pix)}</TableCell>
-                    <TableCell className="text-right text-purple-600">{formatCurrency(f.total_cartao)}</TableCell>
-                    <TableCell className="text-right font-bold">{formatCurrency(f.total_geral)}</TableCell>
-                    <TableCell className="text-xs max-w-[200px] truncate" title={f.observacoes}>
-                      {f.observacoes || '-'}
+                    <TableCell>{formatCurrency(f.saldo_inicial)}</TableCell>
+                    <TableCell className="text-right text-green-600">
+                      {formatCurrency(f.total_geral)}
+                    </TableCell>
+                    <TableCell className="text-right text-red-600">
+                      -{formatCurrency(f.total_sangrias)}
+                    </TableCell>
+                    <TableCell className="text-right font-bold">
+                      {formatCurrency(f.total_geral + f.saldo_inicial - f.total_sangrias)}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded text-xs ${f.status === 'fechado' ? 'bg-gray-200' : 'bg-green-100 text-green-800'}`}>
+                        {f.status}
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))
