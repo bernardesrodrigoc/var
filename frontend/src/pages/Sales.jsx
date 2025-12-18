@@ -32,8 +32,8 @@ export default function SalesAdvanced() {
   // ---------------------
 
   // Payment states
-  const [paymentMode, setPaymentMode] = useState('single'); 
-  const [singlePayment, setSinglePayment] = useState('Dinheiro');
+  const [paymentMode, setPaymentMode] = useState('single');
+  const [singlePayment, setSinglePayment] = useState(''); // Começa vazio para obrigar seleção
   const [mixedPayments, setMixedPayments] = useState([
     { modalidade: 'Dinheiro', valor: 0, parcelas: 1 }
   ]);
@@ -217,13 +217,9 @@ export default function SalesAdvanced() {
   };
 
   const addToCart = (product) => {
-    // Cria um ID único para o item no carrinho.
-    // Se for manual (código 0), gera um ID aleatório para permitir múltiplos itens manuais com preços diferentes.
-    // Se for normal, usa o ID do produto para agrupar quantidades.
     const isManual = product.codigo === '0';
     const cartItemId = isManual ? `manual-${Date.now()}-${Math.random()}` : product.id;
 
-    // Só tenta agrupar se NÃO for manual
     const existingItem = !isManual ? cart.find((item) => item.product_id === product.id) : null;
     
     if (existingItem) {
@@ -232,7 +228,7 @@ export default function SalesAdvanced() {
       setCart([
         ...cart,
         {
-          cart_item_id: cartItemId, // ID interno do carrinho
+          cart_item_id: cartItemId,
           product_id: product.id,
           codigo: product.codigo,
           descricao: product.descricao,
@@ -246,8 +242,6 @@ export default function SalesAdvanced() {
   };
 
   const updateQuantity = (identifier, newQuantity, isCartItemId = false) => {
-    // identifier pode ser o product_id (normal) ou cart_item_id (manual)
-    
     if (newQuantity <= 0) {
       removeFromCart(identifier, isCartItemId);
       return;
@@ -255,7 +249,6 @@ export default function SalesAdvanced() {
     
     setCart(
       cart.map((item) => {
-        // Verifica se é o item correto
         const match = isCartItemId ? item.cart_item_id === identifier : item.product_id === identifier;
         
         return match
@@ -356,12 +349,7 @@ export default function SalesAdvanced() {
         encomenda: isEncomenda,
         is_troca: isTroca,
         filial_id: selectedFilial.id,
-        // --- NOVA DATA (RETROATIVA) ---
-        // Se for admin/gerente, usa a data personalizada. Se não, nulo (backend usa data atual)
-       
         data: isAdminOrManager ? new Date(`${customDate}T12:00:00`).toISOString() : null,
-       
-        // ------------------------------
       };
 
       const sale = await salesAPI.create(saleData);
@@ -414,16 +402,21 @@ export default function SalesAdvanced() {
     setIsEncomenda(false);
     setIsTroca(false);
     setPaymentMode('single');
-    setSinglePayment('Dinheiro');
+    setSinglePayment(''); // Reseta para vazio para obrigar nova seleção
     setMixedPayments([{ modalidade: 'Dinheiro', valor: 0, parcelas: 1 }]);
     setInstallments(1);
-    // Não resetamos a Data Personalizada de propósito, para facilitar lançamentos em série do mesmo dia
   };
 
   const total = calculateTotal();
   const subtotal = calculateSubtotal();
   const availableCredit = customerData?.credito_loja || 0;
   const maxCreditUsable = Math.min(availableCredit, total);
+
+  // --- LÓGICA DE VALIDAÇÃO DO BOTÃO FINALIZAR ---
+  const isCreditWithoutCustomer = paymentMode === 'single' && singlePayment === 'Credito' && selectedCustomer === 'none';
+  const isPaymentSelected = paymentMode === 'mixed' ? true : singlePayment !== '';
+  const canFinalize = cart.length > 0 && isPaymentSelected && !isCreditWithoutCustomer;
+  // ----------------------------------------------
 
   return (
     <div className="space-y-6" data-testid="sales-page">
@@ -504,7 +497,6 @@ export default function SalesAdvanced() {
                 <div className="space-y-3">
                   {cart.map((item) => (
                     <div
-                      // Usa cart_item_id para itens manuais, ou product_id para normais
                       key={item.cart_item_id || item.product_id}
                       className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"
                       data-testid={`cart-item-${item.codigo}`}
@@ -577,7 +569,6 @@ export default function SalesAdvanced() {
                   </p>
                 </div>
               )}
-              {/* ------------------------------------------- */}
 
               {/* Vendedor Selector */}
               <div className="space-y-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
@@ -672,8 +663,8 @@ export default function SalesAdvanced() {
                   <div className="space-y-2">
                     <Label>Forma de Pagamento</Label>
                     <Select value={singlePayment} onValueChange={setSinglePayment}>
-                      <SelectTrigger>
-                        <SelectValue />
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione o pagamento..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Dinheiro">
@@ -829,10 +820,15 @@ export default function SalesAdvanced() {
 
               {/* Checkout Button */}
               <Button
-                className="w-full h-12 text-lg"
+                className="w-full h-12 text-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleCheckout}
-                disabled={cart.length === 0 || processing}
+                disabled={!canFinalize || processing}
                 data-testid="checkout-button"
+                title={
+                  !isPaymentSelected ? "Selecione a forma de pagamento" :
+                  isCreditWithoutCustomer ? "Identifique o cliente para venda a prazo" :
+                  "Finalizar Venda"
+                }
               >
                 {processing ? 'Processando...' : isTroca ? 'Registrar Troca' : 'Finalizar Venda'}
               </Button>
