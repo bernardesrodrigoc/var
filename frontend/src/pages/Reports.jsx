@@ -4,13 +4,12 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useFilial } from '@/context/FilialContext';
 import { useToast } from '@/components/ui/use-toast';
-import { FileText, Download, Calendar, XCircle, AlertTriangle, DollarSign, CreditCard, Smartphone, Wallet, ShoppingBag, Layers } from 'lucide-react';
+import { FileText, Download, Calendar, XCircle, AlertTriangle, DollarSign, CreditCard, Smartphone, Wallet, ShoppingBag, Layers, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '@/lib/api';
 
 export default function Reports() {
   const [salesByVendor, setSalesByVendor] = useState([]);
-  const [inventoryValue, setInventoryValue] = useState(null);
   const [allSales, setAllSales] = useState([]);
   
   // Datas padrão: Mês atual
@@ -39,16 +38,16 @@ export default function Reports() {
     try {
       setLoading(true);
       const filialParam = `filial_id=${selectedFilial.id}`;
+      // Garante que a listagem pegue o dia inteiro na string também
       const fimDoDia = `${dataFim}T23:59:59`;
       
-      const [salesData, inventoryData, salesList] = await Promise.all([
+      // Removido a chamada de 'inventory-value'
+      const [salesData, salesList] = await Promise.all([
         api.get(`/reports/sales-by-vendor?data_inicio=${dataInicio}&data_fim=${dataFim}&${filialParam}`).then(r => r.data),
-        api.get(`/reports/inventory-value?${filialParam}`).then(r => r.data),
         api.get(`/sales?${filialParam}&data_inicio=${dataInicio}&data_fim=${fimDoDia}&limit=5000`).then(r => r.data),
       ]);
 
       setSalesByVendor(salesData);
-      setInventoryValue(inventoryData);
       setAllSales(salesList);
       
     } catch (error) {
@@ -284,42 +283,6 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
         </Card>
       </div>
 
-      {/* Inventory Value */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Valor do Estoque</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Valor de Custo</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {formatCurrency(inventoryValue?.valor_custo || 0)}
-              </p>
-            </div>
-            <div className="p-4 bg-green-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Valor de Venda</p>
-              <p className="text-2xl font-bold text-green-600">
-                {formatCurrency(inventoryValue?.valor_venda || 0)}
-              </p>
-            </div>
-            <div className="p-4 bg-purple-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Lucro Potencial</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {formatCurrency(inventoryValue?.lucro_potencial || 0)}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Margem:{' '}
-                {inventoryValue?.valor_venda > 0
-                  ? ((inventoryValue.lucro_potencial / inventoryValue.valor_venda) * 100).toFixed(1)
-                  : 0}
-                %
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Sales History List */}
       <Card>
         <CardHeader>
@@ -366,7 +329,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                       )}
                     </div>
 
-                    {/* --- NOVO: DETALHAMENTO DE PAGAMENTO MISTO --- */}
+                    {/* Detalhamento de Pagamento Misto */}
                     {sale.modalidade_pagamento === 'Misto' && sale.pagamentos && (
                       <div className="flex gap-2 flex-wrap mt-2 mb-1">
                         {sale.pagamentos.map((pag, idx) => (
@@ -377,7 +340,6 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                         ))}
                       </div>
                     )}
-                    {/* ------------------------------------------- */}
                     
                     {/* Detalhes Data/Cliente */}
                     <div className="flex justify-between md:justify-start md:gap-8 mt-2 text-sm text-gray-600">
@@ -429,7 +391,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-100 hover:border-red-200 w-full"
                         title="Estornar venda (cancelar)"
                       >
-                        <AlertTriangle className="w-4 h-4 mr-2" />
+                        <Trash2 className="w-4 h-4 mr-2" />
                         Estornar
                       </Button>
                     )}
