@@ -532,7 +532,7 @@ export default function FechamentoCaixa() {
             <div className="space-y-2">
               <label className="text-sm font-medium">
                 {/* --- ALTERAÇÃO AQUI: Mostra (Opcional) se for gerência --- */}
-                Descrição / Motivo {tipoMovimento === 'retirada_gerencia' && <span className="text-gray-400 font-normal ml-1">(Opcional)</span>}
+                Observação {tipoMovimento === 'retirada_gerencia' && <span className="text-gray-400 font-normal ml-1">(Opcional)</span>}
               </label>
               <Input 
                 placeholder={
