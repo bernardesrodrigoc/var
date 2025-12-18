@@ -1101,38 +1101,46 @@ async def get_dashboard_stats(filial_id: Optional[str] = None, current_user: Use
         "low_stock_products": low_stock
     }
 
+# No backend/server.py, procure por @api_router.get("/reports/sales-by-vendor") e substitua por:
+
 @api_router.get("/reports/sales-by-vendor")
 async def get_sales_by_vendor(
-    data_inicio: Optional[str] = None, 
-    data_fim: Optional[str] = None, 
+    data_inicio: str, 
+    data_fim: str, 
     filial_id: Optional[str] = None, 
     current_user: User = Depends(get_current_active_user)
 ):
-    # Vendedoras cannot access this report
-    if current_user.role == "vendedora":
-        raise HTTPException(status_code=403, detail="Vendedoras não têm acesso a relatórios gerais")
+    # Ajuste de Datas:
+    # Garante que a data de início comece em 00:00:00
+    start_dt = datetime.fromisoformat(data_inicio.replace('Z', '')).replace(hour=0, minute=0, second=0)
     
-    match_stage = {"estornada": {"$ne": True}, "is_troca": {"$ne": True}}  # Excluir vendas estornadas
+    # Garante que a data fim vá até o último segundo do dia (23:59:59)
+    # Isso resolve o problema de filtrar o mesmo dia (ex: 17 a 17)
+    end_dt = datetime.fromisoformat(data_fim.replace('Z', '')).replace(hour=23, minute=59, second=59)
+    
+    match_query = {
+        "data": {"$gte": start_dt.isoformat(), "$lte": end_dt.isoformat()},
+        "estornada": {"$ne": True}, # Não conta estornos
+        "is_troca": {"$ne": True}   # Não conta trocas (opcional, depende da sua regra)
+    }
+    
     if filial_id:
-        match_stage["filial_id"] = filial_id
-    
-    if data_inicio and data_fim:
-        # Filter by date range
-        match_stage["data"] = {"$gte": data_inicio, "$lte": data_fim}
-    
+        match_query["filial_id"] = filial_id
+        
     pipeline = [
-        {"$match": match_stage},
+        {"$match": match_query},
         {"$group": {
             "_id": "$vendedor",
             "total_vendas": {"$sum": "$total"},
             "num_vendas": {"$sum": 1},
-            "total_pecas": {"$sum": {"$sum": "$items.quantidade"}}
+            "total_pecas": {"$sum": {"$size": "$items"}}
         }},
         {"$sort": {"total_vendas": -1}}
     ]
     
     results = await db.sales.aggregate(pipeline).to_list(100)
     return results
+
 
 @api_router.get("/reports/inventory-value")
 async def get_inventory_value(filial_id: Optional[str] = None, current_user: User = Depends(get_current_active_user)):
