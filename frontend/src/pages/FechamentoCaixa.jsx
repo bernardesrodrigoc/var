@@ -93,10 +93,16 @@ export default function FechamentoCaixa() {
       toast({ variant: 'destructive', title: 'Valor inválido' });
       return;
     }
-    if (!movimentoData.observacao) {
+    
+    // --- ALTERAÇÃO AQUI: Validação condicional ---
+    // Só exige descrição se NÃO for retirada de gerência
+    if (tipoMovimento !== 'retirada_gerencia' && !movimentoData.observacao.trim()) {
       toast({ variant: 'destructive', title: 'Informe uma descrição' });
       return;
     }
+
+    // Se a descrição estiver vazia na gerência, usamos um texto padrão
+    const obsFinal = movimentoData.observacao || (tipoMovimento === 'retirada_gerencia' ? 'Retirada Gerência' : '');
 
     try {
       await api.post('/caixa/movimento', {
@@ -104,7 +110,7 @@ export default function FechamentoCaixa() {
         usuario: user.full_name,
         tipo: tipoMovimento,
         valor: valor,
-        observacao: movimentoData.observacao
+        observacao: obsFinal // Usamos a variável tratada aqui
       });
       toast({ title: 'Movimentação Registrada!' });
       setMovimentoOpen(false);
@@ -113,7 +119,6 @@ export default function FechamentoCaixa() {
       toast({ variant: 'destructive', title: 'Erro ao registrar movimento' });
     }
   };
-
   const handleDeleteMovimento = async (id) => {
     if (!window.confirm('Excluir esta movimentação?')) return;
     try {
@@ -524,7 +529,21 @@ export default function FechamentoCaixa() {
           <DialogHeader><DialogTitle>{tipoMovimento === 'suprimento' ? 'Adicionar Dinheiro' : tipoMovimento === 'retirada_gerencia' ? 'Retirada Gerência' : 'Registrar Despesa'}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2"><label>Valor (R$)</label><Input type="number" step="0.01" value={movimentoData.valor} onChange={e => setMovimentoData({...movimentoData, valor: e.target.value})} autoFocus /></div>
-            <div className="space-y-2"><label>Descrição</label><Input placeholder="Motivo" value={movimentoData.observacao} onChange={e => setMovimentoData({...movimentoData, observacao: e.target.value})} /></div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {/* --- ALTERAÇÃO AQUI: Mostra (Opcional) se for gerência --- */}
+                Descrição / Motivo {tipoMovimento === 'retirada_gerencia' && <span className="text-gray-400 font-normal ml-1">(Opcional)</span>}
+              </label>
+              <Input 
+                placeholder={
+                  tipoMovimento === 'suprimento' ? 'Ex: Troco inicial extra' : 
+                  tipoMovimento === 'retirada_gerencia' ? 'Opcional' : 
+                  'Ex: Material de limpeza'
+                } 
+                value={movimentoData.observacao} 
+                onChange={e => setMovimentoData({...movimentoData, observacao: e.target.value})} 
+              />
+            </div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setMovimentoOpen(false)}>Cancelar</Button><Button onClick={handleSalvarMovimento} className={tipoMovimento === 'suprimento' ? 'bg-green-600' : 'bg-red-600'}>Confirmar</Button></DialogFooter>
         </DialogContent>
