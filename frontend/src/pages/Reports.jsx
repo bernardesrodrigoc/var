@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useFilial } from '@/context/FilialContext';
 import { useToast } from '@/components/ui/use-toast';
-import { FileText, Download, Calendar, XCircle, AlertTriangle, DollarSign, CreditCard, Smartphone, Wallet, ShoppingBag, Layers, Trash2 } from 'lucide-react';
+import { FileText, Download, Calendar, XCircle, AlertTriangle, DollarSign, CreditCard, Smartphone, Wallet, ShoppingBag, Layers, Trash2, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '@/lib/api';
 
@@ -38,10 +38,8 @@ export default function Reports() {
     try {
       setLoading(true);
       const filialParam = `filial_id=${selectedFilial.id}`;
-      // Garante que a listagem pegue o dia inteiro na string também
       const fimDoDia = `${dataFim}T23:59:59`;
       
-      // Removido a chamada de 'inventory-value'
       const [salesData, salesList] = await Promise.all([
         api.get(`/reports/sales-by-vendor?data_inicio=${dataInicio}&data_fim=${dataFim}&${filialParam}`).then(r => r.data),
         api.get(`/sales?${filialParam}&data_inicio=${dataInicio}&data_fim=${fimDoDia}&limit=5000`).then(r => r.data),
@@ -93,6 +91,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
 
   // Cálculo dos totais por pagamento
   const paymentTotals = allSales.reduce((acc, sale) => {
+    // Ignora estornadas e trocas na soma financeira
     if (sale.estornada || sale.is_troca) return acc;
 
     if (sale.modalidade_pagamento === 'Misto' && sale.pagamentos) {
@@ -320,8 +319,6 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                         </span>
                       )}
                       
-                      {/* Nota: O bloco antigo de is_troca foi removido daqui pois agora faz parte da condicional principal acima */}
-
                       {sale.online && (
                         <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200">
                           Online
@@ -334,9 +331,8 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                       )}
                     </div>
 
-                    
-                    {/* Detalhamento de Pagamento Misto */}
-                    {sale.modalidade_pagamento === 'Misto' && sale.pagamentos && (
+                    {/* Detalhamento de Pagamento Misto (SÓ APARECE SE NÃO FOR TROCA) */}
+                    {!sale.is_troca && sale.modalidade_pagamento === 'Misto' && sale.pagamentos && (
                       <div className="flex gap-2 flex-wrap mt-2 mb-1">
                         {sale.pagamentos.map((pag, idx) => (
                           <div key={idx} className="flex items-center gap-1 text-[10px] bg-indigo-50 border border-indigo-100 px-2 py-1 rounded text-indigo-700 font-medium">
