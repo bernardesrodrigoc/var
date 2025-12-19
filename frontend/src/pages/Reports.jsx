@@ -301,10 +301,17 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                     <div className="flex items-center gap-3 flex-wrap">
                       <p className="font-bold text-gray-900 text-lg">{sale.vendedor}</p>
                       
-                      {/* Badge Principal */}
-                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
-                        {sale.modalidade_pagamento === 'Credito' ? 'A Prazo' : sale.modalidade_pagamento}
-                      </span>
+                      {/* LÓGICA CORRIGIDA: Se for Troca, SÓ mostra troca. Se não, mostra pagamento */}
+                      {sale.is_troca ? (
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full border border-yellow-200 font-medium flex items-center gap-1">
+                          <RefreshCw className="w-3 h-3" />
+                          Troca
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
+                          {sale.modalidade_pagamento === 'Credito' ? 'A Prazo' : sale.modalidade_pagamento}
+                        </span>
+                      )}
                       
                       {sale.estornada && (
                         <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1 font-bold border border-red-200">
@@ -312,11 +319,9 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                           ESTORNADA
                         </span>
                       )}
-                      {sale.is_troca && (
-                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full border border-yellow-200 font-medium">
-                          Troca
-                        </span>
-                      )}
+                      
+                      {/* Nota: O bloco antigo de is_troca foi removido daqui pois agora faz parte da condicional principal acima */}
+
                       {sale.online && (
                         <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200">
                           Online
@@ -329,6 +334,7 @@ Os produtos retornarão ao estoque e a venda será marcada como ESTORNADA.`;
                       )}
                     </div>
 
+                    
                     {/* Detalhamento de Pagamento Misto */}
                     {sale.modalidade_pagamento === 'Misto' && sale.pagamentos && (
                       <div className="flex gap-2 flex-wrap mt-2 mb-1">
