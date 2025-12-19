@@ -437,83 +437,42 @@ export default function FechamentoCaixa() {
         </Card>
       </div>
 
-      {/* --- LISTA DETALHADA DE VENDAS (AUDITORIA) --- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Auditoria de Vendas do Dia ({resumo.lista_vendas?.length || 0})</CardTitle>
-          <CardDescription>Conferência detalhada de itens e pagamentos</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[500px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
-            {resumo.lista_vendas?.map((sale) => (
-              <div key={sale.id} className="flex flex-col md:flex-row items-start justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-300 transition-colors">
-                <div className="flex-1 w-full">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <p className="font-bold text-gray-900 text-lg">{sale.vendedor}</p>
-                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
-                      {sale.modalidade_pagamento === 'Credito' ? 'A Prazo' : sale.modalidade_pagamento}
-                    </span>
-                    {sale.estornada && <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1 font-bold border border-red-200"><XCircle className="w-3 h-3" /> ESTORNADA</span>}
-                    {sale.is_troca && <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full border border-yellow-200 font-medium">Troca</span>}
-                  </div>
+{/* Cabeçalho da Venda */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <p className="font-bold text-gray-900 text-lg">{sale.vendedor}</p>
+                      
+                      {/* LÓGICA CORRIGIDA: Se for Troca, SÓ mostra troca. Se não, mostra pagamento */}
+                      {sale.is_troca ? (
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full border border-yellow-200 font-medium flex items-center gap-1">
+                          <RefreshCw className="w-3 h-3" />
+                          Troca
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
+                          {sale.modalidade_pagamento === 'Credito' ? 'A Prazo' : sale.modalidade_pagamento}
+                        </span>
+                      )}
+                      
+                      {sale.estornada && (
+                        <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1 font-bold border border-red-200">
+                          <XCircle className="w-3 h-3" />
+                          ESTORNADA
+                        </span>
+                      )}
+                      
+                      {/* Nota: O bloco antigo de is_troca foi removido daqui pois agora faz parte da condicional principal acima */}
 
-                  {sale.modalidade_pagamento === 'Misto' && sale.pagamentos && (
-                    <div className="flex gap-2 flex-wrap mt-2 mb-1">
-                      {sale.pagamentos.map((pag, idx) => (
-                        <div key={idx} className="flex items-center gap-1 text-[10px] bg-indigo-50 border border-indigo-100 px-2 py-1 rounded text-indigo-700 font-medium">
-                          <Layers className="w-3 h-3" />
-                          <span>{pag.modalidade === 'Credito' ? 'A Prazo' : pag.modalidade}: {formatCurrency(pag.valor)}</span>
-                        </div>
-                      ))}
+                      {sale.online && (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200">
+                          Online
+                        </span>
+                      )}
+                      {sale.encomenda && (
+                        <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full border border-purple-200">
+                          Encomenda
+                        </span>
+                      )}
                     </div>
-                  )}
-                  
-                  <div className="flex justify-between md:justify-start md:gap-8 mt-2 text-sm text-gray-600">
-                    <span>{formatDate(sale.data)} às {sale.hora}</span>
-                    {sale.cliente_nome && <span className="font-medium text-gray-800">Cliente: {sale.cliente_nome}</span>}
-                  </div>
-
-                  {/* Lista de Itens */}
-                  <div className="mt-3 bg-white border border-gray-200 rounded-md p-3 max-w-2xl shadow-sm">
-                    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase flex items-center gap-1">
-                      <ShoppingBag className="w-3 h-3"/> Itens ({sale.items.length})
-                    </p>
-                    <ul className="space-y-1">
-                      {sale.items.map((item, idx) => (
-                        <li key={idx} className="text-sm text-gray-700 flex justify-between border-b border-gray-50 last:border-0 pb-1 last:pb-0">
-                          <span>
-                            <span className="font-bold text-indigo-600 mr-2">{item.quantidade}x</span>
-                            <span className="font-mono text-xs text-gray-500 mr-2">[{item.codigo}]</span>
-                            {item.descricao}
-                          </span>
-                          <span className="text-gray-500 text-xs">
-                            {formatCurrency(item.subtotal || (item.preco_venda * item.quantidade))}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col items-end gap-2 mt-4 md:mt-0 min-w-[150px]">
-                  <div className="text-right">
-                    <p className={`text-xl font-bold ${sale.estornada ? 'text-red-600 line-through decoration-2' : 'text-indigo-600'}`}>
-                      {formatCurrency(sale.total)}
-                    </p>
-                    {sale.parcelas > 1 && <p className="text-xs text-gray-500">{sale.parcelas}x {formatCurrency(sale.total / sale.parcelas)}</p>}
-                  </div>
-                  
-                  {canEstornar && !sale.estornada && (
-                    <Button variant="ghost" size="sm" onClick={() => handleEstornar(sale.id, sale)} className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-100 hover:border-red-200 w-full" title="Estornar venda">
-                      <Trash2 className="w-4 h-4 mr-2" /> Estornar
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Observações */}
       <Card>
